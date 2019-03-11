@@ -3,8 +3,7 @@ musetools
 =========
 
 
-Add a short description here!
-
+This is a python toolbox to use and analyze VLT/MUSE IFU data 
 
 Description
 ===========
