@@ -36,21 +36,23 @@ def vel(xcen, ycen, squaresize, lam_galaxy, wave, flux_data):
         del_v[i] = beta * c
     
     plt.figure()
-    plt.title('The spectrum of the square centered at ('+str(xcen)+','+str(ycen)+') using the velocity with wavelength:'+str(lam_galaxy)+'')
+    plt.title('The spectrum centered at ('+str(xcen)+','+str(ycen)+') using the velocity with wavelength:'+str(lam_galaxy)+'')
     plt.xlabel('Velocity')
     plt.ylabel('Normalized Flux')
-    plt.plot(del_v,spec) 
+    plt.plot(del_v[1800:2650],spec[1800:2650]) 
     plt.show()   
 
     
 
-lam_galaxy = float(input('Enter the wavelength value of the emission line from the galaxy: ')) # This is calculated using the redshift z
+#lam_galaxy = float(input('Enter the wavelength value of the emission line from the galaxy: ')) # This is calculated using the redshift z
 # which you got using z of the galaxy: '))
-squaresize = int(input("Enter the value of the square side length in pixels: "))
+#squaresize = int(input("Enter the value of the square side length in pixels: "))
 xcen = int(input("Enter the x-coordinate of your central pixel of the square: "))
 ycen = int(input("Enter the y-coordinate of your central pixel of the square: "))
+lam_galaxy = np.array([7550.1477, 7569.5256, 7020.4671, 6983.955, 7091.4177, 7054.1658])
 
-vel(xcen, ycen, squaresize, lam_galaxy, wave, data)
+for j in np.nditer(lam_galaxy):
+    vel(xcen, ycen, 5, j, wave, data)
 
 
 
