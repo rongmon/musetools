@@ -2,7 +2,7 @@
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
-from astropy.wcs import WCS
+
 
 fitsfile = input("Enter the path to your file: ")
 a = fits.open(fitsfile)
@@ -29,6 +29,7 @@ def sq_spectrum(xcen, ycen, wave, flux_data, squaresize, outfile=None):
     plt.xlabel('Wavelength')
     plt.ylabel('Normalized Flux')
     plt.plot(wave[2300:2500],spec[2300:2500])
+    # use the indexes interval [2300:2500] to get Mg II lines
     plt.show()
 ####
 
