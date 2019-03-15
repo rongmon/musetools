@@ -1,9 +1,12 @@
 # importing the required libraries
+from __future__ import print_function, absolute_import, division, unicode_literals
+
 from astropy.io import fits
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 
+'''
 fitsfile = input("Enter the path to your file: ")
 a = fits.open(fitsfile)
 
@@ -19,11 +22,23 @@ wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
 wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3  # This array contains the wavelength 
 
 ####
+'''
 # This is the function which will give us the spectrum of each square
-def sq_spectrum(xcen, ycen, wave, flux_data, squaresize, outfile=None):
+def extract_square(xcen, ycen, wave, flux_data, squaresize, outfile=None):
     halfbox = (squaresize - 1)//2
     flux = flux_data[:,ycen-halfbox:ycen+halfbox+1, xcen-halfbox:xcen+halfbox+1]
     spec = np.sum(flux, axis=(1,2))
+    return spec 
+
+
+
+
+
+
+
+
+
+'''
     fig = plt.figure()
     plt.title('The spectrum of the square centered at ('+str(xcen)+','+str(ycen)+')')
     plt.xlabel('Wavelength')
@@ -38,7 +53,7 @@ xcen = int(input("Enter the x-coordinate of your central pixel of the square: ")
 ycen = int(input("Enter the y-coordinate of your central pixel of the square: "))
 
 sq_spectrum(xcen, ycen, wave, data, squaresize)
-
+'''
 
 
 

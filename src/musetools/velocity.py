@@ -3,9 +3,22 @@ from __future__ import division
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
+from musetools import spec as s
+from musetools import util as u
+
+import getpass 
 
 
-fitsfile = '/home/ahmed/Research/data/RCS0327_16mc_zap.fits'
+
+username=getpass.getuser()
+
+if username == 'bordoloi':
+	fitsfile = '/Users/bordoloi/Dropbox/MUSE/LensedArc/RCS0327_16mc_zap.fits'
+else:
+	fitsfile = '/home/ahmed/Research/data/RCS0327_16mc_zap.fits'
+
+
+
 # input("Enter the path to your file: ")
 a = fits.open(fitsfile)
 
@@ -21,8 +34,29 @@ wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
 # Do it
 wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3  # This array contains the wavelength
 
+xcen = 121
+ycen = 245
+zgal= 1.7037455
+lam_center=2796.352
 
-    
+wave_rest= wave/(1.+zgal)
+
+sp= s.extract_square(xcen, ycen, wave_rest, data, 5)
+
+vel= u.veldiff(wave_rest,lam_center)
+
+
+plt.step(vel,sp)
+plt.xlim([-15000.,15000.])
+
+plt.show()
+
+
+
+
+
+
+'''    
 def vel(xcen, ycen, squaresize, lam_galaxy, wave, flux_data):
     # lam_galaxy : represents the observed wavelength of the gas from the galaxy itself
     halfbox = (squaresize - 1)//2
@@ -54,5 +88,5 @@ lam_galaxy = np.array([7550.1477, 7569.5256, 7020.4671, 6983.955, 7091.4177, 705
 for j in np.nditer(lam_galaxy):
     vel(xcen, ycen, 5, j, wave, data)
 
-
+'''
 
