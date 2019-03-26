@@ -15,7 +15,7 @@ username=getpass.getuser()
 if username == 'bordoloi':
 	fitsfile = '/Users/bordoloi/Dropbox/MUSE/LensedArc/RCS0327_16mc_zap.fits'
 else:
-	fitsfile = '/home/ahmed/Research/data/RCS0327_16mc_zap.fits'
+	fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
 
 
 

@@ -5,8 +5,18 @@ import matplotlib.pyplot as plt
 from musetools import io as io
 from musetools import spec as s
 
+import getpass 
 
-fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
+
+username=getpass.getuser()
+
+if username == 'bordoloi':
+	fitsfile = '/Users/bordoloi/Dropbox/MUSE/LensedArc/RCS0327_16mc_zap.fits'
+else:
+	fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
+
+
+
 wave, data, var = io.open_muse_cube(fitsfile)
 
 xcen = 121
