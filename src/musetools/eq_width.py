@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from musetools import io as io
 from musetools import spec as s
-from musetools import util as u
+
 
 fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
 wave, data, var = io.open_muse_cube(fitsfile)
@@ -24,6 +24,9 @@ fig = plt.figure()
 int_index = 2200
 fin_index = 2300
 p = np.poly1d(np.polyfit(wave[int_index:fin_index],spec[int_index:fin_index],5))
+'''
+The previous line does the polynomial fitting for the continuum
+'''
 
 #plt.plot(wave[2100:2600],spec[2100:2600], '-',wave[int_index:fin_index],p(wave[int_index:fin_index]),'--')
 plt.subplot(2,1,1)
