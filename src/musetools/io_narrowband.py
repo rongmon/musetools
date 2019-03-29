@@ -4,7 +4,7 @@ from musetools import io as io
 
 fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
 #input("Enter the path to your file: ")
-wave, data = io.open_muse_cube(fitsfile)
+wave, data, var = io.open_muse_cube(fitsfile)
 
 minwave = float(input('Enter the minimum value for your wavelength: '))
 maxwave = float(input('Enter the maximum value for your wavelength: '))

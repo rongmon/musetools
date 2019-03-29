@@ -29,10 +29,7 @@ def open_muse_cube(fitsfile):
     wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3 # This array contains the wavelength
     return wave, data, var
 
-#def open_muse_var(fitsfile):
-#    a = fits.open(fitsfile)
-#    var = a[2].data
-#    return var 
+
 
 def narrow_band(minwave, maxwave, wave, flux_data):
     '''
