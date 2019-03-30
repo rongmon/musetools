@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from musetools import spec as s
 from musetools import util as u
-
-import getpass 
+from musetools import io as io
+import getpass
 
 
 
@@ -19,74 +19,61 @@ else:
 
 
 
-# input("Enter the path to your file: ")
-a = fits.open(fitsfile)
-
-
-data = a[1].data  # the spectrum data are included in the data extension of the fits file
-# data.shape   # you can use this command to know the dimensions of your data cube
-hdu_hdr = a[1].header  # reading the header of the data into a variable called hdu_hdr
-# We will transform the pixels' indexes into wavelength array
-crval3 = hdu_hdr['CRVAL3']  # This is the starting value of the wavelength
-crpix3 = hdu_hdr['CRPIX3']  # The pixel that has the value of CRVAL3
-cd3_3 = hdu_hdr['CD3_3']    # The range of wavelength difference delta_lambda
-wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
-# Do it
-wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3  # This array contains the wavelength
+wave, data, var = io.open_muse_cube(fitsfile)
 
 xcen = 121
 ycen = 245
 zgal= 1.7037455
-lam_center=2796.352
+lam_center=2600.173  # Rest wavelength for one of the iron lines
+#lam_center = 2796.351 # Rest Wavelgnth for the first line of Mg II
 
 wave_rest= wave/(1.+zgal)
 
-sp= s.extract_square(xcen, ycen, wave_rest, data, 5)
+spec, err_spec = s.extract_square(xcen, ycen, wave_rest, data, var, 5)
 
 vel= u.veldiff(wave_rest,lam_center)
-
-
-plt.step(vel,sp)
-plt.xlim([-15000.,15000.])
-
-plt.show()
-
-
-
-
-
-
-'''    
-def vel(xcen, ycen, squaresize, lam_galaxy, wave, flux_data):
-    # lam_galaxy : represents the observed wavelength of the gas from the galaxy itself
-    halfbox = (squaresize - 1)//2
-    flux = flux_data[:,ycen-halfbox:ycen+halfbox+1, xcen-halfbox:xcen+halfbox+1]
-    spec = np.sum(flux, axis=(1,2))
-    del_v = np.zeros(len(wave))
-    for i in range(len(wave)-1):
-        z = (wave[i] / lam_galaxy) - 1
-        c = 299792.458  # Speed of light in km/s
-        beta = ((z + 1)**2 - 1)/((z+1)**2 + 1)
-        del_v[i] = beta * c
-    
-    plt.figure()
-    plt.title('The spectrum centered at ('+str(xcen)+','+str(ycen)+') using the velocity with wavelength:'+str(lam_galaxy)+'')
-    plt.xlabel('Velocity')
-    plt.ylabel('Normalized Flux')
-    plt.plot(del_v[1800:2650],spec[1800:2650]) 
-    plt.show()   
-
-    
-
-#lam_galaxy = float(input('Enter the wavelength value of the emission line from the galaxy: ')) # This is calculated using the redshift z
-# which you got using z of the galaxy: '))
-#squaresize = int(input("Enter the value of the square side length in pixels: "))
-xcen = int(input("Enter the x-coordinate of your central pixel of the square: "))
-ycen = int(input("Enter the y-coordinate of your central pixel of the square: "))
-lam_galaxy = np.array([7550.1477, 7569.5256, 7020.4671, 6983.955, 7091.4177, 7054.1658])
-
-for j in np.nditer(lam_galaxy):
-    vel(xcen, ycen, 5, j, wave, data)
+####
+'''
+minindex = 2100
+maxindex = 2800 #for Mg II lines
+'''
+minindex = 1750
+maxindex = 2100
+vel = vel[minindex:maxindex]
+spec = spec[minindex:maxindex]
+err_spec = err_spec[minindex:maxindex]
 
 '''
+minw = 7530.
+maxw = 7600.  These the wavelength limits for Mg II
+'''
+minw = 6967.
+maxw = 7111.   # These are the wavelength limits for Fe lines
+q = np.where(( wave > minw) & (wave < maxw))
+vel_fit = np.delete(vel, q)
+spec_fit = np.delete(spec, q)
 
+cont = np.poly1d(np.polyfit(vel_fit, spec_fit, 3))
+####
+fig = plt.figure()
+plt.subplot(2,1,1)
+plt.step(vel,spec,'-',vel,cont(vel),'--',vel,err_spec,'r-')
+plt.xlabel('Velocity')
+plt.ylabel('Flux')
+plt.xlim([-10500.,8000.])
+#plt.xlim([-15000.,15000.])  # for Mg II
+
+plt.subplot(2,1,2)
+plt.step(vel,spec/cont(vel))
+#plt.ylim([-1,2])
+plt.xlabel('Velocity')
+plt.ylabel(' Normalized Flux')
+plt.xlim([-10500.,8000.])
+#plt.xlim([-15000.,15000.])   # for Mg II
+
+#plt.subplot(3,1,3)
+#plt.step(vel,1 - (spec/cont(vel)))
+#plt.xlabel('Velocity')
+#plt.ylabel('1- Normalized Flux')
+#plt.xlim([-15000.,15000.])
+plt.show()
