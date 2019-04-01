@@ -19,8 +19,8 @@ else:
 
 wave, data, var = io.open_muse_cube(fitsfile)
 
-xcen = 121
-ycen = 245
+xcen = 121   #  values: 121, 140, 156, 243
+ycen = 245   #  values: 245, 262, 272, 238
 spec, err_spec = s.extract_square(xcen, ycen, wave, data, var, 5)
 
 line = input('Enter the element type (Fe or Mg):')
