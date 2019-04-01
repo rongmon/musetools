@@ -76,10 +76,10 @@ if line == 'Fe':
 
 	dlambda = 1.25   # Given from the head of the fits file as CD3_3
 
-	l1 = np.where(( wave > 6978.22) & (wave < 6995.5))
-	l2 = np.where(( wave > 7013.09) & (wave < 7033.83))
-	l3 = np.where(( wave > 7055.82) & (wave < 7066.5))
-	l4 = np.where(( wave > 7092.26) & (wave < 7105.46))
+	l1 = np.where(( wave > 6978.22) & (wave < 6995.5))   # first absorption line
+	l2 = np.where(( wave > 7013.09) & (wave < 7033.83))  # 2nd absorption line
+	l3 = np.where(( wave > 7055.82) & (wave < 7066.5))   # 1st emission line
+	l4 = np.where(( wave > 7092.26) & (wave < 7105.46))  # 2nd emission line
 
 	w1 = np.sum((1-spec[l1]/cont(wave[l1]))*dlambda)
 	w2 = np.sum((1-spec[l2]/cont(wave[l2]))*dlambda)
