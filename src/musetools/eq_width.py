@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 from musetools import io as io
 from musetools import spec as s
 from musetools import util as u
+import pdb
 
 import getpass
-
+# TEST BLAH BLAH BLAH
 
 username=getpass.getuser()
 
@@ -110,9 +111,13 @@ if line == 'Fe':
 			#cont_vel = np.poly1d(np.polynomial.legendre.legfit(vel_fit, spec_fit, 30))
 			plot_vel(vel,spec,err_spec,cont_vel(vel),-1000.,600.)
 			l1 = np.where((vel < 600.) & (vel > -1000.))
+<<<<<<< HEAD
 			w1 = np.trapz((1-spec[l1]/cont_rest(wave_rest[l1])))
 
 			#u.compute_EW(wave,spec/cont(wave),wave_rest,[-1000.,600.],err_spec/cont(wave),False,zabs = zgal)
+=======
+			w1 = np.trapz((1-spec[l1]/cont_rest(wave_rest[l1])),x=wave_rest[l1])
+>>>>>>> cfcd857dcb2b60f54dfd69f3c23930313115cc92
 			print(w1)
 		elif  line_num == '2':
 			lam_center = 2600.173
@@ -189,7 +194,7 @@ elif line == 'Mg':
 			cont_vel = np.poly1d(np.polyfit(vel_fit, spec_fit, 3))
 			plot_vel(vel,spec,err_spec,cont_vel(vel),-1000,600)
 			l1 = np.where((vel < 600.) & (vel > -1000.))
-			w1 = np.trapz((1-spec[l1]/cont_rest(wave_rest[l1])))
+			w1 = np.trapz((1-spec[l1]/cont_rest(wave_rest[l1])),x=wave_rest[l1])
 			print(w1)
 		elif line_num == '2':
 			lam_center = 2803.528
