@@ -111,6 +111,8 @@ if line == 'Fe':
 			plot_vel(vel,spec,err_spec,cont_vel(vel),-1000.,600.)
 			l1 = np.where((vel < 600.) & (vel > -1000.))
 			w1 = np.trapz((1-spec[l1]/cont_rest(wave_rest[l1])))
+
+			#u.compute_EW(wave,spec/cont(wave),wave_rest,[-1000.,600.],err_spec/cont(wave),False,zabs = zgal)
 			print(w1)
 		elif  line_num == '2':
 			lam_center = 2600.173
@@ -120,6 +122,7 @@ if line == 'Fe':
 			plot_vel(vel,spec,err_spec,cont_vel(vel),-1000.,600.)
 			l2 = np.where((vel < 600.) & (vel > -1000.))
 			w2 = np.trapz((1-spec[l2]/cont_rest(wave_rest[l2])))
+			#u.compute_EW(wave,spec/cont(wave),wave_rest,[-1000.,600.],err_spec/cont(wave),False,zabs = zgal)
 			print(w2)
 		elif line_num == '3':
 			lam_center = 2612.654
