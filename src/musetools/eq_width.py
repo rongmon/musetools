@@ -8,7 +8,7 @@ from musetools import util as u
 import pdb
 
 import getpass
-# TEST
+# TEST BLAH BLAH BLAH
 
 username=getpass.getuser()
 
