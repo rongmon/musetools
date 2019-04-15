@@ -2,6 +2,31 @@ from __future__ import print_function, absolute_import, division, unicode_litera
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
+from astropy.wcs import WCS
+
+def tweak_header(header):
+    '''
+    Header tweaks to make the 3D kcwi header compatible with astropy image header object
+    '''
+    header['NAXIS']=2
+    header['WCSDIM']=2
+    if 'CRVAL3' in header.keys():
+        header.remove('CRVAL3')
+    if 'CRPIX3' in header.keys():
+        header.remove('CRPIX3')
+    if 'CD3_3' in header.keys():
+        header.remove('CD3_3')
+    if 'NAXIS3' in header.keys():
+        header.remove('NAXIS3')
+    if 'CUNIT3' in header.keys():
+        header.remove('CUNIT3')
+    if 'CTYPE3' in header.keys():
+        header.remove('CTYPE3')
+    if 'CNAME3' in header.keys():
+        header.remove('CNAME3')
+
+    return header
+
 
 '''
 This input and output file contains all the required function to open the MUSE data
@@ -27,8 +52,8 @@ def open_muse_cube(fitsfile):
     wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
     # Do it
     wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3 # This array contains the wavelength
-    return wave, data, var
-
+    header = tweak_header(hdu_hdr)
+    return wave, data, var, header
 
 
 def narrow_band(minwave, maxwave, wave, flux_data):
