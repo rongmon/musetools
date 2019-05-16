@@ -33,6 +33,7 @@ ycen = [226,233,237,241,244,248,252,257,260,264,269,271,274,274,274,274,274,272,
 
 #s=w.pixel_to_world(xcen,ycen,0)
 #print(s)
+
 #spec, spec_err = s.extract_square(xcen, ycen, wave, data, var, 5)
 
 

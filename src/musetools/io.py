@@ -56,7 +56,7 @@ def open_muse_cube(fitsfile):
     return wave, data, var, header
 
 
-def narrow_band(minwave, maxwave, wave, flux_data):
+def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
     '''
     minwave:   minimum wavelength of the narrow band
     maxwave:   maximum wavelength of the narrow band
@@ -67,10 +67,13 @@ def narrow_band(minwave, maxwave, wave, flux_data):
     '''
     q = np.where(( wave > minwave) & (wave < maxwave)) # Defining the chosen wavelength interval
     image = np.sum(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
-    plt.show()
+    if plot== True:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
+        plt.show()
+
+    return image[0,:,:]
 
 
 def w_image(wave, flux_data):
