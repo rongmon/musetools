@@ -106,21 +106,38 @@ if line == 'Fe':
 eqw_arc = eqw_arc[:,1:]
 print(eqw_arc)
 
-#image= io.narrow_band(7530.,7600.,wave,data)
+image= io.narrow_band(7530.,7600.,wave,data)
 
 
-#width_in = 10
-#fig=plt.figure(1, figsize=(width_in, 15))
-#ax = fig.add_subplot(111)
-#im=ax.imshow(np.log10(np.abs(image)), interpolation='nearest',cmap=plt.get_cmap('viridis'),origin="lower")
-#ax.plot(xcen,ycen,'+',color='r',markersize=12)
-#ax.set_ylim([205,300])
+
 
 for j in range(4):
-	plt.scatter(xcen_cord, ycen_cord, c=eqw_arc[j,:], cmap='viridis')
-	plt.colorbar()
+	width_in = 10
+	fig=plt.figure(1, figsize=(width_in, 15))
+	ax = fig.add_subplot(111)
+	im=ax.imshow(np.log10(np.abs(image)), interpolation='nearest',cmap=plt.get_cmap('viridis'),origin="lower")
+	sc = ax.scatter(xcen, ycen, c=eqw_arc[j,:],marker='.', cmap='Reds')
+	plt.colorbar(sc)
+	ax.set_ylim([205,300])
 	plt.show()
 
+
+# Choosing a reference point in the middle of the arc: xcen = 170, ycen = 274
+# I will calculate the angular seperation for the other points from this center reference point.
+d_x = np.zeros(len(xcen))
+d_y = np.zeros(len(xcen))
+d   = np.zeros(len(xcen))
+for i in range(len(xcen)):
+	d_x[i] = 0.2*(xcen[i] - 170)
+	d_y[i] = 0.2*(ycen[i] - 274)
+	d[i]   = np.sqrt(d_x[i]**2 + d_y[i]**2)
+	if i < 14:
+		d[i] = - d[i]
+for i in range(4):
+	plt.plot(d,eqw_arc[i,:],'o')
+	plt.xlabel('Seperation from the center in arc seconds')
+	plt.ylabel('Equivalent Width')
+	plt.show()
 
 
 if line =='Mg':
