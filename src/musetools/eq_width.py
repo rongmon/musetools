@@ -39,8 +39,8 @@ ycen = [226,233,237,241,244,248,252,257,260,264,269,271,274,274,274,274,274,272,
 def compute_eqw(lam_center,wrest,spec,continuum,vmin,vmax):
     vel = u.veldiff(wrest,lam_center)
     l = np.where((vel < vmax) & (vel > vmin))
-    w = np.trapz(1-spec[l]/continuum[l],x=wrest[l])
-    return w
+    ew = np.trapz(1-spec[l]/continuum[l],x=wrest[l])
+    return ew
 
 def plot_vel(vel,spec,spec_err,continuum,start_line,end_line):
 	plt.figure()
@@ -76,13 +76,13 @@ def Fewidth(wave,wrest,cx,cy):
 	q = np.where(( wave > minw) & (wave < maxw))
 	wrest_fit = np.delete(wrest, q)
 	spec_fit = np.delete(spec, q)
-	cont = np.poly1d(np.polyfit(wrest_fit, spec_fit, 3))
+	cont = np.poly1d(np.polyfit(wrest_fit, spec_fit, 3))  # Defining my polynomial
 	continuum = cont(wrest)
 	lam_center = [2586.650,2600.173,2612.654,2626.451]
 	eqw = np.zeros((4,1))
 	k = 0
 	for i in lam_center:
-		vel = u.veldiff(wrest,i)
+		#vel = u.veldiff(wrest,i)
 		#plot_vel(vel,spec,spec_err,continuum,-1000,550)
 		eqw[k] = compute_eqw(i,wrest,spec,continuum,-1000,550)
 		k = k +1
@@ -90,18 +90,33 @@ def Fewidth(wave,wrest,cx,cy):
 	return eqw
 
 line = input('Enter the element type (Fe or Mg): ')
+xcen_cord = []
+ycen_cord = []
 if line == 'Fe':
 	eqw_arc = np.zeros((4,1))
 	for cx, cy in zip(xcen, ycen):
-		c=w.pixel_to_world(cx,cy,0)
-		print(c)
+		c=w.pixel_to_world_values(cx,cy,0)
+		xcen_cord.append(c[0])
+		ycen_cord.append(c[1])
+		print(c[0],c[1])
 		eqw = Fewidth(wave,wrest,cx,cy)
 		#print(eqw)
 		eqw_arc = np.hstack((eqw_arc,eqw))
 eqw_arc = eqw_arc[:,1:]
 print(eqw_arc)
+
+#image= io.narrow_band(7530.,7600.,wave,data)
+
+
+#width_in = 10
+#fig=plt.figure(1, figsize=(width_in, 15))
+#ax = fig.add_subplot(111)
+#im=ax.imshow(np.log10(np.abs(image)), interpolation='nearest',cmap=plt.get_cmap('viridis'),origin="lower")
+#ax.plot(xcen,ycen,'+',color='r',markersize=12)
+#ax.set_ylim([205,300])
+
 for j in range(4):
-	plt.scatter(xcen, ycen, c=eqw_arc[j,:], cmap='viridis')
+	plt.scatter(xcen_cord, ycen_cord, c=eqw_arc[j,:], cmap='viridis')
 	plt.colorbar()
 	plt.show()
 
