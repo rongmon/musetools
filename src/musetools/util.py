@@ -9,7 +9,7 @@ def veldiff(wave,wave_center):
     del_v = beta * c
     return del_v
 
-    
+
 import numpy as np
 def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
     #------------------------------------------------------------------------------------------

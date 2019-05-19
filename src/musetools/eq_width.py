@@ -6,6 +6,7 @@ from musetools import io as io
 from musetools import spec as s
 from musetools import util as u
 from astropy.wcs import WCS
+import math as m
 import pdb
 
 import getpass
@@ -41,26 +42,34 @@ def compute_eqw(lam_center,wrest,spec,continuum,vmin,vmax):
     vel = u.veldiff(wrest,lam_center)
     l = np.where((vel < vmax) & (vel > vmin))
     ew = np.trapz(1-spec[l]/continuum[l],x=wrest[l])
+
     return ew
 
-def plot_vel(vel,spec,spec_err,continuum,start_line,end_line):
-	plt.figure()
-	plt.subplot(2,1,1)
-	plt.step(vel,spec,'-',vel,continuum,'--',vel,spec_err,'r-')
-	plt.axvline(x=start_line, linewidth=0.5)
-	plt.axvline(x=end_line, linewidth = 0.5)
-	plt.xlabel('Velocity')
-	plt.ylabel('Flux')
+def plot_vel(vel,spec,spec_err,continuum,start_line,end_line,xc,yc,lamda):
+	fig, axs = plt.subplots(2, 1, constrained_layout=True)
+	axs[0].step(vel,spec,'-',label='Flux')#,vel,continuum,'--',label='Continuum',vel,spec_err,'r-',label ='Error')
+	axs[0].step(vel,continuum,'--',label='Continuum')
+	axs[0].step(vel,spec_err,'r-',label='Error')
+	axs[0].axvline(x=start_line, linewidth=0.5)
+	axs[0].axvline(x=end_line,linewidth = 0.5 )
+	axs[0].legend(loc = 'upper right',prop={'size': 5})
+	axs[0].set_xlabel('Velocity')
+	axs[0].set_ylabel('Flux')
 
-	plt.subplot(2,1,2)
-	plt.step(vel,spec/continuum,'-',vel,spec_err/continuum,'r-')
-	#plt.ylim([-1,2])
-	plt.axvline(x=start_line, linewidth =0.5)
-	plt.axvline(x=end_line,linewidth=0.5)
-	plt.xlabel('Velocity')
-	plt.ylabel(' Normalized Flux')
+	axs[1].step(vel,spec/continuum,'-',label='Normalized Flux')#,vel,spec_err/continuum,'r-',label='Normalized Error')
+	axs[1].step(vel,spec_err/continuum,'r-',label='Normalized Error')
+	axs[1].axvline(x=start_line, linewidth = 0.5)
+	axs[1].axvline(x=end_line, linewidth = 0.5)
+	axs[1].legend(loc='upper right',prop={'size': 5})
+	axs[1].set_xlabel('Velocity')
+	axs[1].set_ylabel('Normalized Flux')
+	fig.suptitle('Spectrum of Fe line '+str(lamda)+' of the square with pix coordinates ('+str(xc)+','+str(yc)+')')
+	#manager = plt.get_current_fig_manager()
+	#manager.window.showMaximized()
+	fig.savefig('/home/ahmed/astro/figures/spectra/Spectrum_'+str(xc)+'_'+str(yc)+'_'+str(lamda)+'.pdf', bbox_inches='tight')   # save the figure to file
+	plt.close(fig)
+	#plt.savefig('Spectrum_'+str(xc)+'_'+str(yc)+'_'+str(lamda)+'.pdf')
 
-	plt.show()
 def Fewidth(wave,wrest,cx,cy):
 	spec, spec_err = s.extract_square(cx, cy, wave, data, var, 5)
 	minindex = 1750
@@ -69,9 +78,6 @@ def Fewidth(wave,wrest,cx,cy):
 	spec = spec[minindex:maxindex]
 	spec_err = spec_err[minindex:maxindex]
 	wrest= wrest[minindex:maxindex]
-	#plt.subplot(2,1,1)
-	#plt.plot(wave,spec) Uncomment these two lines and modify the indices of the next
-	# subplots to view the total flux
 	minw = 6967.
 	maxw = 7111.   # These are the wavelength limits for Fe lines
 	q = np.where(( wave > minw) & (wave < maxw))
@@ -81,34 +87,46 @@ def Fewidth(wave,wrest,cx,cy):
 	continuum = cont(wrest)
 	lam_center = [2586.650,2600.173,2612.654,2626.451]
 	eqw = np.zeros((4,1))
+	eqw_err = np.zeros((4,1))
 	k = 0
 	for i in lam_center:
-		#vel = u.veldiff(wrest,i)
-		#plot_vel(vel,spec,spec_err,continuum,-1000,550)
-		eqw[k] = compute_eqw(i,wrest,spec,continuum,-1000,550)
+		vel = u.veldiff(wrest,i)
+		plot_vel(vel,spec,spec_err,continuum,-1000,550,cx,cy,i)
+		lmts = [-1000,550]
+		temp = u.compute_EW(wrest,spec/continuum,i,lmts,spec_err/continuum)
+		eqw[k]=temp['ew_tot']
+		eqw_err[k] = temp['err_ew_tot']
 		k = k +1
 
-	return eqw
+	return eqw, eqw_err
 
 line = input('Enter the element type (Fe or Mg): ')
 xcen_cord = []
 ycen_cord = []
 if line == 'Fe':
 	eqw_arc = np.zeros((4,1))
+	eqw_err_arc = np.zeros((4,1))
 	for cx, cy in zip(xcen, ycen):
 		c=w.pixel_to_world_values(cx,cy,0)
 		xcen_cord.append(c[0])
 		ycen_cord.append(c[1])
 		print(c[0],c[1])
-		eqw = Fewidth(wave,wrest,cx,cy)
+		eqw, eqw_err = Fewidth(wave,wrest,cx,cy)
 		#print(eqw)
 		eqw_arc = np.hstack((eqw_arc,eqw))
+		eqw_err_arc = np.hstack((eqw_err_arc,eqw_err))
 eqw_arc = eqw_arc[:,1:]
+eqw_err_arc = eqw_err_arc[:,1:]
 print(eqw_arc)
-
+print(eqw_err_arc)
+#np.array(your_list,dtype=float)
+xcen_cord = np.array(xcen_cord,dtype=float)
+ycen_cord = np.array(ycen_cord,dtype=float)
+print(xcen_cord)
+print(ycen_cord)
 image= io.narrow_band(7530.,7600.,wave,data)
 
-
+lam_center = [2586.650,2600.173,2612.654,2626.451]
 
 
 for j in range(4):
@@ -116,29 +134,41 @@ for j in range(4):
 	fig=plt.figure(1, figsize=(width_in, 15))
 	ax = fig.add_subplot(111)
 	im=ax.imshow(np.log10(np.abs(image)), interpolation='nearest',cmap=plt.get_cmap('viridis'),origin="lower")
-	sc = ax.scatter(xcen, ycen, c=eqw_arc[j,:],marker='.', cmap='Reds')
+	sc = ax.scatter(xcen, ycen, s =5**2,c=eqw_arc[j,:],marker='s', cmap='Reds')
 	plt.colorbar(sc)
-	ax.set_ylim([205,300])
-	plt.show()
+	ax.set_title('Equivalent Width of Fe line with rest wavelength: '+str(lam_center[j])+'A')
+	ax.set_ylabel('Declination')
+	ax.set_xlabel('Right Ascention')
 
+	ax.set_ylim([205,300])
+	fig.savefig('/home/ahmed/astro/figures/equivalent_width/EW_Fe_'+str(lam_center[j])+'.pdf')
+	plt.close(fig)
 
 # Choosing a reference point in the middle of the arc: xcen = 170, ycen = 274
+#
 # I will calculate the angular seperation for the other points from this center reference point.
-d_x = np.zeros(len(xcen))
-d_y = np.zeros(len(xcen))
 d   = np.zeros(len(xcen))
-for i in range(len(xcen)):
-	d_x[i] = 0.2*(xcen[i] - 170)
-	d_y[i] = 0.2*(ycen[i] - 274)
-	d[i]   = np.sqrt(d_x[i]**2 + d_y[i]**2)
+xc = 170
+yc = 274
+cen = w.pixel_to_world_values(xc,yc,0)
+cen = np.array(cen,dtype=float)
+# cen[0] is the right ascention of the center of the Arc
+# cen[1] is the declination of the center of the Arc.
+for i in range(len(xcen_cord)):
+	d[i] = m.acos(m.sin(m.radians(cen[1])) * m.sin(m.radians(ycen_cord[i])) + m.cos(m.radians(cen[1])) * m.cos(m.radians(ycen_cord[i])) * m.cos(m.radians( cen[0] - xcen_cord[i] )))
+	d[i] = 3600 * m.degrees(d[i])
 	if i < 14:
 		d[i] = - d[i]
+print(d)
 for i in range(4):
-	plt.plot(d,eqw_arc[i,:],'o')
-	plt.xlabel('Seperation from the center in arc seconds')
-	plt.ylabel('Equivalent Width')
-	plt.show()
-
+	plt.errorbar(d,eqw_arc[i,:],yerr=eqw_err_arc[i,:],fmt='o',markersize=5, capsize=4)
+	plt.title('Equvalent Width Vs Seperation Angle for Fe line: '+str(lam_center[i])+' A')
+	plt.xlabel('Seperation Angle (Arc Seconds)')
+	plt.ylabel('EW (A)')
+	manager = plt.get_current_fig_manager()
+	manager.window.showMaximized()
+	plt.savefig('/home/ahmed/astro/figures/EW_Vs_Separation_Angle/EW_SepAng_Fe_'+str(lam_center[i])+'.pdf')
+	plt.clf()
 
 if line =='Mg':
 	minindex = 2200
