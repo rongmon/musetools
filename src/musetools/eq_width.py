@@ -45,7 +45,7 @@ def compute_eqw(lam_center,wrest,spec,continuum,vmin,vmax):
 
     return ew
 
-def plot_vel(vel,spec,spec_err,continuum,start_line,end_line,xc,yc,lamda):
+def plot_vel(vel,spec,spec_err,continuum,start_line,end_line,xc,yc,k,lamda,eqw,eqw_err):
 	fig, axs = plt.subplots(2, 1, constrained_layout=True)
 	axs[0].step(vel,spec,'-',label='Flux')#,vel,continuum,'--',label='Continuum',vel,spec_err,'r-',label ='Error')
 	axs[0].step(vel,continuum,'--',label='Continuum')
@@ -53,6 +53,11 @@ def plot_vel(vel,spec,spec_err,continuum,start_line,end_line,xc,yc,lamda):
 	axs[0].axvline(x=start_line, linewidth=0.5)
 	axs[0].axvline(x=end_line,linewidth = 0.5 )
 	axs[0].legend(loc = 'upper right',prop={'size': 5})
+	textstr = '\n'.join((
+    r'$EW=%.9f$' % (eqw, ),
+    r'$\sigma=%.9f$' % (eqw_err, )))
+	axs[0].text(0.05, 0.95, textstr, transform=axs[0].transAxes, fontsize=5,
+        verticalalignment='top')
 	axs[0].set_xlabel('Velocity')
 	axs[0].set_ylabel('Flux')
 
@@ -63,14 +68,11 @@ def plot_vel(vel,spec,spec_err,continuum,start_line,end_line,xc,yc,lamda):
 	axs[1].legend(loc='upper right',prop={'size': 5})
 	axs[1].set_xlabel('Velocity')
 	axs[1].set_ylabel('Normalized Flux')
-	fig.suptitle('Spectrum of Fe line '+str(lamda)+' of the square with pix coordinates ('+str(xc)+','+str(yc)+')')
-	#manager = plt.get_current_fig_manager()
-	#manager.window.showMaximized()
+	fig.suptitle('Spectrum of Fe '+str(lamda)+' of the square '+str(k)+' with pix coordinates ('+str(xc)+','+str(yc)+')')
 	fig.savefig('/home/ahmed/astro/figures/spectra/Spectrum_'+str(xc)+'_'+str(yc)+'_'+str(lamda)+'.pdf', bbox_inches='tight')   # save the figure to file
 	plt.close(fig)
-	#plt.savefig('Spectrum_'+str(xc)+'_'+str(yc)+'_'+str(lamda)+'.pdf')
 
-def Fewidth(wave,wrest,cx,cy):
+def Fewidth(wave,wrest,cx,cy,n):
 	spec, spec_err = s.extract_square(cx, cy, wave, data, var, 5)
 	minindex = 1750
 	maxindex = 2100
@@ -89,16 +91,21 @@ def Fewidth(wave,wrest,cx,cy):
 	eqw = np.zeros((4,1))
 	eqw_err = np.zeros((4,1))
 	k = 0
+	v_avg = []
 	for i in lam_center:
 		vel = u.veldiff(wrest,i)
-		plot_vel(vel,spec,spec_err,continuum,-1000,550,cx,cy,i)
+		#plot_vel(vel,spec,spec_err,continuum,-1000,550,cx,cy,i)
 		lmts = [-1000,550]
 		temp = u.compute_EW(wrest,spec/continuum,i,lmts,spec_err/continuum)
 		eqw[k]=temp['ew_tot']
 		eqw_err[k] = temp['err_ew_tot']
+		plot_vel(vel,spec,spec_err,continuum,-1000,550,cx,cy,n,i,eqw[k],eqw_err[k])
 		k = k +1
-
-	return eqw, eqw_err
+		if i < 2612:
+			l = np.where((vel < 550) & (vel > -1000))
+			norm = np.trapz((1-spec[l]),x=vel[l])
+			v_avg.append(np.trapz((1/norm)*vel[l]*(1-spec[l]),x=vel[l]))
+	return eqw, eqw_err,v_avg#, spec, spec_err
 
 line = input('Enter the element type (Fe or Mg): ')
 xcen_cord = []
@@ -106,20 +113,30 @@ ycen_cord = []
 if line == 'Fe':
 	eqw_arc = np.zeros((4,1))
 	eqw_err_arc = np.zeros((4,1))
+	v_avg_arc = np.zeros((1,2))
+	n= 1
 	for cx, cy in zip(xcen, ycen):
 		c=w.pixel_to_world_values(cx,cy,0)
 		xcen_cord.append(c[0])
 		ycen_cord.append(c[1])
 		print(c[0],c[1])
-		eqw, eqw_err = Fewidth(wave,wrest,cx,cy)
-		#print(eqw)
+		eqw, eqw_err, v_avg = Fewidth(wave,wrest,cx,cy,n)
+		v_avg = np.array(v_avg)
+		n = n + 1
+		#print(spec/spec_err)
 		eqw_arc = np.hstack((eqw_arc,eqw))
 		eqw_err_arc = np.hstack((eqw_err_arc,eqw_err))
+		v_avg_arc = np.vstack((v_avg_arc,v_avg))
+		print('v_avg '+str(cx)+' & '+str(cy)+'')
+		print(v_avg)
 eqw_arc = eqw_arc[:,1:]
 eqw_err_arc = eqw_err_arc[:,1:]
+v_avg_arc = v_avg_arc[1:,:]
 print(eqw_arc)
 print(eqw_err_arc)
+print(v_avg_arc)
 #np.array(your_list,dtype=float)
+
 xcen_cord = np.array(xcen_cord,dtype=float)
 ycen_cord = np.array(ycen_cord,dtype=float)
 print(xcen_cord)
@@ -160,15 +177,79 @@ for i in range(len(xcen_cord)):
 	if i < 14:
 		d[i] = - d[i]
 print(d)
+
+###### Checking the Signal to Noise Ratio for the Equivalent width
+snr = np.zeros((4,eqw_arc.shape[1]))
+lims = np.zeros((4,eqw_arc.shape[1]))
 for i in range(4):
-	plt.errorbar(d,eqw_arc[i,:],yerr=eqw_err_arc[i,:],fmt='o',markersize=5, capsize=4)
-	plt.title('Equvalent Width Vs Seperation Angle for Fe line: '+str(lam_center[i])+' A')
-	plt.xlabel('Seperation Angle (Arc Seconds)')
+	snr[i,:] = eqw_arc[i,:]/(3*eqw_err_arc[i,:])
+	print('SNR')
+	print(snr[i,:])
+
+det1 = np.where(np.abs(snr[0,:]) > 1)   # The detection for the Fe line 2586.650
+det2 = np.where(np.abs(snr[1,:]) > 1)   # The detection for the Fe line 2600.173
+det3 = np.where(np.abs(snr[2,:]) > 1)   # The detection for the Fe line 2612.654
+det4 = np.where(np.abs(snr[3,:]) > 1)   # The detection for the Fe line 2626.541
+
+non_det1 = np.where(np.abs(snr[0,:]) < 1)
+non_det2 = np.where(np.abs(snr[1,:]) < 1)
+non_det3 = np.where(np.abs(snr[2,:]) < 1)
+non_det4 = np.where(np.abs(snr[3,:]) < 1)
+
+def error_plot(d,eqw_arc,eqw_err_arc,i,det,non_det,mark,size):
+	ew = eqw_arc[i,:]
+	ew_err = eqw_err_arc[i,:]
+	lam_center = [2586.650,2600.173,2612.654,2626.451]
+	plt.errorbar(d[det], ew[det], yerr=ew_err[det], fmt='o', markersize=mark, capsize=size)
+	if i <2:
+		#plt.errorbar(d[non_det], 2*ew_err[non_det], yerr=2*ew_err[non_det], uplims=True, fmt='o',markersize=mark, capsize=size)
+		plt.errorbar(d[non_det], 2*ew_err[non_det], yerr=1., uplims=True, fmt='o',markersize=mark, capsize=size)
+
+	else:
+		plt.errorbar(d[non_det], 2*ew_err[non_det], yerr=2*ew_err[non_det], lolims=True, fmt='o',markersize=mark, capsize=size)
+	plt.title('EW Vs $\Delta \Theta$ for Fe line: '+str(lam_center[i])+' A')
+	plt.xlabel('$\Delta \Theta$ (Arc Seconds)')
 	plt.ylabel('EW (A)')
 	manager = plt.get_current_fig_manager()
 	manager.window.showMaximized()
 	plt.savefig('/home/ahmed/astro/figures/EW_Vs_Separation_Angle/EW_SepAng_Fe_'+str(lam_center[i])+'.pdf')
 	plt.clf()
+
+######
+
+#for i in range(4):
+error_plot(d,eqw_arc,eqw_err_arc,0,det1,non_det1,5,5)
+error_plot(d,eqw_arc,eqw_err_arc,1,det2,non_det2,5,5)
+error_plot(d,eqw_arc,eqw_err_arc,2,det3,non_det3,5,5)
+error_plot(d,eqw_arc,eqw_err_arc,3,det4,non_det4,5,5)
+
+plt.plot(d,eqw_arc[1,:]/eqw_arc[0,:],'o',markersize=5)
+plt.title('The Ratio of EW of Fe lines 2600 & 2586.650 Vs $\Delta \Theta$')
+plt.xlabel('$\Theta$')
+plt.ylabel('EW2/EW1')
+mng = plt.get_current_fig_manager()
+mng.window.showMaximized()
+plt.savefig('/home/ahmed/astro/figures/EW_Vs_Separation_Angle/EW_SepAng_Fe_2600_2586.pdf')
+plt.clf()
+
+
+plt.plot(d,v_avg_arc[:,0],'o',markersize=5)
+plt.title('Average Velocity of Fe 2586 Vs $\Delta \Theta$')
+plt.xlabel('$\Delta \Theta$')
+plt.ylabel('Avg Velocity')
+mg = plt.get_current_fig_manager()
+mg.window.showMaximized()
+plt.savefig('/home/ahmed/astro/figures/velocity/vel_vs_Sep_Ang_Fe_2586.pdf')
+plt.clf()
+
+plt.plot(d,v_avg_arc[:,1],'o',markersize=5)
+plt.title('Average Velocity of Fe 2600 Vs $\Delta \Theta$')
+plt.xlabel('$\Delta \Theta$')
+plt.ylabel('Avg Velocity')
+mg = plt.get_current_fig_manager()
+mg.window.showMaximized()
+plt.savefig('/home/ahmed/astro/figures/velocity/vel_vs_Sep_Ang_Fe_2600.pdf')
+plt.clf()
 
 if line =='Mg':
 	minindex = 2200
