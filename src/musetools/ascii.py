@@ -1,4 +1,10 @@
 from astropy.io import ascii
+
+
+import getpass
+# TEST BLAH BLAH BLAH
+
+
 data = ascii.read('/home/ahmed/astro/data/rcs0327-knotE-allres-combwC1.txt')
 import numpy as np
 import matplotlib.pyplot as plt

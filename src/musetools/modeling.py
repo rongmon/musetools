@@ -32,6 +32,7 @@ plt.show()
 def modelMg(v,v1,tau1,c1,sigma1):
     v2 = v1 + 768.4476528376828
     F = 1 - tau1 * np.exp(-(v - v1)**2 / ( 2 * sigma1**2)) - c1 * tau1 * np.exp(-(v - v2)**2 / (2 * sigma1**2))
+    
     muse_kernel = (6. / 2.355)
     g = Gaussian1DKernel(stddev=muse_kernel)
     fmodel = convolve(F, g, boundary='extend')

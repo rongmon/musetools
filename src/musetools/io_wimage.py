@@ -4,7 +4,16 @@ from musetools import io as io
 import matplotlib.pyplot as plt
 from musetools import spec as s
 import numpy as np
-fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
+
+import getpass
+# TEST BLAH BLAH BLAH
+
+username=getpass.getuser()
+
+if username == 'bordoloi':
+	fitsfile = '/Users/bordoloi/Dropbox/MUSE/LensedArc/RCS0327_16mc_zap.fits'
+else:
+	fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
 #input("Enter the path to your file: ")
 
 
