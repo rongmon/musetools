@@ -4,11 +4,11 @@ from astropy.convolution import convolve, Gaussian1DKernel
 
 def modelFe(v,v1,tau1,tau3,c1,c2,c3,sigma1,sigma2):#,sigma3,sigma4):
     v2 = v1 + 1563.2173499656212    # This is the average velocity for the 2nd absorption line 2600
-    Fabs = 1 - tau1 * np.exp(-(v - v1)**2 / ( 2 * sigma1**2)) - c1 * tau1 * np.exp(-(v - v2)**2 / (2 * sigma1**2))
+    Fabs = 1 - tau1 * np.exp(-(v - v1)**2. / ( 2. * sigma1**2.)) - c1 * tau1 * np.exp(-(v - v2)**2. / (2. * sigma1**2.))
     v3 = v1 + 2998.7121643443234    # This is the average velocity for the 1st emission line 2612
     v4 = v1 + 4577.445992391543     # This is the average velocity for the 2nd emission line 2626.
     v5 = v1 + 5222.289150706484                      # This is the average velocity for the third emission line 2632
-    Fems = 1 + tau3 * np.exp(-(v - v3)**2 / (2 * sigma2**2)) + c2 * tau3 * np.exp(-(v - v4)**2 / (2 * sigma2**2)) +c3 * tau3 * np.exp(-(v - v5)**2 / (2* sigma2**2))
+    Fems = 1 + tau3 * np.exp(-(v - v3)**2. / (2. * sigma2**2.)) + c2 * tau3 * np.exp(-(v - v4)**2. / (2 * sigma2**2.)) +c3 * tau3 * np.exp(-(v - v5)**2. / (2.* sigma2**2.))
     muse_kernel = (6. / 2.355)
     g = Gaussian1DKernel(stddev=muse_kernel)
     # Convolve data
