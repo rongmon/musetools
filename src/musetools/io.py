@@ -68,14 +68,14 @@ def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
     q = np.where(( wave > minwave) & (wave < maxwave)) # Defining the chosen wavelength interval
     image = np.sum(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
     if plot== True:
-        title = input('Enter the title of the plot: ')
+        #title = input('Enter the title of the plot: ')
         width_in = 10
         fig=plt.figure(1, figsize=(width_in, 15))
         #fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
         #ax.set_ylim([205,300])
-        ax.set_title(title)
+        #ax.set_title(title)
         plt.show()
 
     return image[0,:,:]
