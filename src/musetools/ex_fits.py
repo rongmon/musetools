@@ -59,15 +59,17 @@ for cx, cy in zip(xcen, ycen):
 	#vel2 = u.veldiff(wrest,lam_center[1])
 	#vel3 = u.veldiff(wrest,lam_center[2])
 	#vel4 = u.veldiff(wrest,lam_center[3])
-	#from scipy.optimize import curve_fit
-	#popt, pcov = curve_fit(m.modelFe, vel1, norm_flx, sigma=norm_flx_err)
-	#print(popt)
-	#print(pcov)
+	from scipy.optimize import curve_fit
+	popt, pcov = curve_fit(m.modelFe, vel1, norm_flx)
+	print(popt)
+	print(pcov)
+	'''
 	gmodel = Model(m.modelFe)
 	result = gmodel.fit(norm_flx,v=vel1, v1=0, tau1=0.7, tau3= 0.4, c1=1.1, c2=1.7,c3=1., sigma1=150, sigma2=100)#,sigma3=100,sigma4=95)
 	print(result.fit_report())
+	'''
 	plt.step(vel1, norm_flx, label='Normalized Flux')
-	plt.plot(vel1, result.best_fit, 'y-',label='Model')
+	#plt.plot(vel1, result.best_fit, 'y-',label='Model')
 	plt.step(vel1, norm_flx_err,'r',label='Error')
 	plt.legend(loc=0)
 	plt.title('Normalized Flux Vs Velocity for '+str(cx)+' & '+str(cy)+'')

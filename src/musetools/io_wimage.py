@@ -25,7 +25,7 @@ minwave = 7558.4#7090.     #7090.       #7555.
 maxwave = 7563.7#7110.     #7110.       #7573.
 ems_image = io.narrow_band(minwave, maxwave, wave, data,plot=False)
 cont_min = 7645.#6930.
-cont_max = 7700.#6950.
+cont_max = 7650.3#6950.
 cont_image = io.narrow_band(cont_min, cont_max, wave, data,plot=False)
 
 zmin=-1
@@ -39,13 +39,14 @@ width_in = 10
 fig=plt.figure(1, figsize=(width_in, 15))
 ax = fig.add_subplot(311)
 ax.imshow(np.log10(np.abs( ems_image-cont_image)), cmap = plt.get_cmap('viridis'), origin='lower',vmin=zmin, vmax=zmax)
-ax.contour(ems_image-cont_image,levels=np.logspace(-5,71,10),colors='black')
+ax.contour(ems_image-cont_image,levels=np.logspace(-5,71,3),colors='white')
 ax.set_title('Residual emission')
 ax.set_ylim([205,300])
 
 
 ax1 = fig.add_subplot(312)
 ax1.imshow(np.log10(np.abs(cont_image )), cmap = plt.get_cmap('viridis'), origin='lower',vmin=zmin, vmax=zmax)
+ax1.contour(cont_image,levels=np.logspace(-5,71,3),colors='white')
 ax1.set_title('Continuum')
 ax1.set_ylim([205,300])
 

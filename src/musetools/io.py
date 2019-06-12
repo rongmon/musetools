@@ -66,7 +66,7 @@ def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
     The output of this function is a wavelength narrow band image of the LensedArc
     '''
     q = np.where(( wave > minwave) & (wave < maxwave)) # Defining the chosen wavelength interval
-    image = np.sum(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
+    image = np.mean(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
     if plot== True:
         #title = input('Enter the title of the plot: ')
         width_in = 10
