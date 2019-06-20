@@ -24,6 +24,15 @@ def tweak_header(header):
         header.remove('CTYPE3')
     if 'CNAME3' in header.keys():
         header.remove('CNAME3')
+    if 'CD1_3' in header.keys():
+        header.remove('CD1_3')
+    if 'CD2_3' in header.keys():
+        header.remove('CD2_3')
+    if 'CD3_1' in header.keys():
+        header.remove('CD3_1')
+    if 'CD3_2' in header.keys():
+        header.remove('CD3_2')
+
 
     return header
 
@@ -52,8 +61,8 @@ def open_muse_cube(fitsfile):
     wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
     # Do it
     wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3 # This array contains the wavelength
-    header = tweak_header(hdu_hdr)
-    return wave, data, var, header
+    #header = tweak_header(hdu_hdr)
+    return wave, data, var, hdu_hdr
 
 
 def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
@@ -95,3 +104,14 @@ def w_image(wave, flux_data):
     ax = fig.add_subplot(111)
     d = ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
     plt.show()
+
+
+def write_cube(flx,var,header,outfile):
+    #create a new datacube
+    hdu1 = fits.PrimaryHDU(s,header=h)
+    hdu2 = fits.ImageHDU(sv,header=h)
+    new_hdul = fits.HDUList([hdu1, hdu2])
+    new_hdul.writeto(outfile, overwrite=True)
+    print("Wrote cube to {}".format(outfile))
+
+

@@ -1,5 +1,9 @@
 from __future__ import print_function, absolute_import, division, unicode_literals
 import numpy as np
+from astropy.nddata import Cutout2D
+from astropy.wcs import WCS
+from copy import deepcopy
+from musetools import io as io
 
 
 def veldiff(wave,wave_center):
@@ -9,8 +13,82 @@ def veldiff(wave,wave_center):
     del_v = beta * c
     return del_v
 
+#Function to perform the image cutout... eventually merge into musetools
+def trim_cube_with_header(fluxfile,size = (200, 100), position = (200., 250.)):
+    """ Trims MUSE ZAP datacube to remove bad pixels and reconstructs the header
 
-import numpy as np
+    Parameters:
+    ----------
+    fluxfile  : name of the flux file
+    size= (y,x) size of the cutout image in pixels
+    position = (y,x) central position of the cutout in pixels
+
+    Returns:
+    ----------
+    newflux, newvar :  New trimmed flux and variance cubes
+    newhdr_flx,newhrd_var: new updated headers
+    """
+    wave, fluxmsky, var, hdu_hdr = io.open_muse_cube(fitsfile)
+    crval3 = hdu_hdr['CRVAL3']
+    crpix3 = hdu_hdr['CRPIX3']
+    cd3_3 = hdu_hdr['CD3_3']
+    wavedim = hdu_hdr['NAXIS3']
+
+
+    
+    wavedim, ydim, xdim = fluxmsky.shape
+    
+    header =io.tweak_header(deepcopy(hdu_hdr))
+    
+
+    
+    q=np.isnan(fluxmsky)
+    fluxmsky[q]=0.
+    qq=np.isnan(var)
+    fluxmsky[q]=0.
+    #position = (16.5, 47.5)
+    #size = (66, 25)     # pixels
+
+
+    newflux=np.zeros((wavedim,size[0],size[1]))
+    newvar=np.zeros((wavedim,size[0],size[1]))
+
+    cutout=Cutout2D(fluxmsky[0,:,:], position, size, wcs=WCS(header))
+    
+    
+    index=cutout.bbox_original
+    
+    newflux=fluxmsky[:,index[0][0]:index[0][1],index[1][0]:index[1][1]]
+    newvar=var[:,index[0][0]:index[0][1],index[1][0]:index[1][1]]
+
+    
+    
+    
+    # Construct new header
+    
+    temp=cutout.wcs.to_header()
+
+    
+    newhdr_flx=deepcopy(hdu_hdr)
+    newhdr_flx['NAXIS1']=size[1]
+    newhdr_flx['NAXIS2']=size[0]
+    newhdr_flx['CRPIX1']=temp['CRPIX1']
+    newhdr_flx['CRPIX2']=temp['CRPIX2']
+    newhdr_flx['CRVAL3']=crval3
+    newhdr_flx['CRPIX3']=crpix3
+    newhdr_flx['CD3_3']=cd3_3
+    newhdr_flx['NAXIS3']=wavedim
+
+    
+    
+    
+    return newflux,newvar,newhdr_flx
+
+
+
+
+
+
 def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
     #------------------------------------------------------------------------------------------
     #   Function to compute the equivalent width within a given velocity limits lmts=[vmin,vmax]
