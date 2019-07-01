@@ -20,6 +20,7 @@ def ascii_data(data,zgal=1.7037455,p=False):
     wrest = wrest[min_index:max_index]
     flx  = flx[min_index:max_index]
     flx_er = flx_er[min_index:max_index]
+    '''
     if p==True:
         fig, ax = plt.subplots()
         ax.step(wrest,flx,label='Flux')
@@ -29,10 +30,11 @@ def ascii_data(data,zgal=1.7037455,p=False):
         ax.set_ylabel('Flux')
         ax.set_title('Flux Vs. Wavelength')
         plt.show()
+    '''
     return wrest, flx, flx_er
 
 ### For the iron lines, I try to find the best window to work with it
-def ascii_spec(wrest, flx, flx_er, minindex, maxindex,p=False):
+def ascii_spec(wrest, flx, flx_er, minindex, maxindex): #,p=False):
     #minFeindex = 2050
     #maxFeindex = 3130
     #minMgindex = 3400
@@ -40,19 +42,10 @@ def ascii_spec(wrest, flx, flx_er, minindex, maxindex,p=False):
     wrest = wrest[minindex:maxindex]
     flx  = flx[minindex:maxindex]
     flx_er = flx_er[minindex:maxindex]
-    if p==True:
-        fig1, ax1 = plt.subplots()
-        ax1.step(wrest,flx,label='Flux')
-        ax1.step(wrest,flx_er,label='Error')
-        ax1.legend(loc=0)
-        ax1.set_xlabel('Wavelength')
-        ax1.set_ylabel('Flux')
-        ax1.set_title('Flux Vs. Wavelength')
-        plt.show()
     return wrest, flx, flx_er
 
 ### Doing the continuum fitting for Fe
-def ascii_contn_vel(wrest,flx, flx_er,lam_center,wmin,wmax,p=False):
+def ascii_contn_vel(wrest,flx, flx_er,lam_center,wmin,wmax):#p=False):
     #wmin_Fe = 2580.
     #wmax_Fe = 2640.
     #wmin_Mg = 2580.
@@ -69,7 +62,9 @@ def ascii_contn_vel(wrest,flx, flx_er,lam_center,wmin,wmax,p=False):
 
     import musetools.util as u
     vel = u.veldiff(wrest,lam_center)
-    if p==True:
+    return flx_norm, flx_er_norm, vel
+
+    def cont_flx_plot(wrest,flx,flx_er,continuum,vel,flx_norm,flx_er_norm):
         fig1, ax1 = plt.subplots(2)
         ax1[0].step(wrest,flx,label='Flux')
         ax1[0].step(wrest,continuum,label='Continuum')
@@ -93,7 +88,8 @@ def ascii_contn_vel(wrest,flx, flx_er,lam_center,wmin,wmax,p=False):
         ax2.set_ylabel('Relative Flux')
         ax2.set_title('Relative Flux Vs. Velocity')
         plt.show()
-    return flx_norm, flx_er_norm, vel
+        return
+
 
 import musetools.modeling as m
 from lmfit import Model
@@ -107,23 +103,56 @@ def model_lmfit(func,flx_norm,flx_er_norm,vel,p0,p=False):
         gmodel = Model(func)
         #result = gmodel.fit(flx_norm,v=vel, v1=0, tau1=0.7, tau3= 0.4, c1=1.1, c2=1.7,c3=1., sigma1=150, sigma2=100)#,sigma3=100,sigma4=95)
         result = gmodel.fit(flx_norm,v=vel,v1=p0[0],tau1=p0[1],tau3=p0[2],c1=p0[3],c2=p0[4],c3=p0[5],sigma1=p0[6],sigma2=p0[7])
-        report = result.fit_report()
+        print(result.fit_report())
     elif func == m.modelMg:
         gmodel = Model(func)
         result = gmodel.fit(flx_norm, v=vel,v1=p0[0],v3=p0[1],tau1=p0[2],tau2=p0[3],c1=p0[4],c2=p0[5],sigma1=p0[6],sigma2=p0[7])
-        report = result.fit_report()
-
+        print(result.fit_report())
+    '''
     if p==True:
         fig3, ax3 = plt.subplots()
         ax3.step(vel, flx_norm, label='Relative Flux')
-        ax3.step(vel, result.best_fit, 'y-',label='Model')
+        ax3.plot(vel, result.best_fit, 'y-',label='Model')
         ax3.step(vel, flx_er_norm,'r',label='Relative Error')
         ax3.legend(loc=0,fontsize ='small')
         ax3.set_xlabel('Velocity')
         ax3.set_ylabel('Relative Flux')
         ax3.set_title('Relative Flux Vs Velocity using lmfit modeling')
         plt.show()
-    return report
+    '''
+    return result
+
+fitsfile = '/home/ahmed/astro/data/RCS0327_16mc_zap.fits'
+cx = 114
+cy = 230
+from musetools import io as io
+from musetools import spec as s
+import musetools.util as u
+import musetools.modeling as m
+from astropy.wcs import WCS
+from astropy.io import fits
+wave, data, var, header = io.open_muse_cube(fitsfile)
+w = WCS(header)
+zgal= 1.7037455
+wrest = wave/(1.+zgal)
+spec, spec_err = s.extract_square(cx, cy, wave, data, var, 5)
+minindex = 1750
+maxindex = 2100
+wave = wave[minindex:maxindex]
+spec = spec[minindex:maxindex]
+spec_err = spec_err[minindex:maxindex]
+wrest= wrest[minindex:maxindex]
+minw = 6967.
+maxw = 7111.   # These are the wavelength limits for Fe lines
+q = np.where(( wave > minw) & (wave < maxw))
+wrest_fit = np.delete(wrest, q)
+spec_fit = np.delete(spec, q)
+cont = np.poly1d(np.polyfit(wrest_fit, spec_fit, 3))  # Defining my polynomial
+continuum = cont(wrest)
+lam_center = [2586.650,2600.173,2612.654,2626.451]
+norm_flx = spec/continuum
+norm_flx_err = spec_err/continuum
+vel1 = u.veldiff(wrest,lam_center[0])
 
 import musetools.modeling as m
 import numpy as np
@@ -134,104 +163,32 @@ wrest_Fe, flx_Fe, flx_er_Fe = ascii_spec(wrest, flx, flx_er, 2050, 3130)
 #v1=0, tau1=0.7, tau3= 0.4, c1=1.1, c2=1.7,c3=1., sigma1=150, sigma2=100
 p0_Fe = [ 0., 0.7, 0.4, 1.1, 1.7, 1., 150., 100.]
 flx_norm_Fe, flx_er_norm_Fe, vel_Fe = ascii_contn_vel(wrest_Fe,flx_Fe, flx_er_Fe,2586.650,2580.,2640.)
-report_Fe = model_lmfit(m.modelFe,flx_norm_Fe,flx_er_norm_Fe,vel_Fe,p0_Fe,p=True)
-print(report_Fe)
-
-print('For the MgII lines')
-p0_Mg = [ 0., 130., 0.9, 1., 0.8, 0.7, 150., 80.]
-wrestMg, flx_Mg, flx_er_Mg = ascii_spec(wrest, flx, flx_er, 3400, 3950,p=True)
-flx_norm_Mg, flx_er_norm_Mg, vel_Mg= ascii_contn_vel(wrestMg,flx_Mg,flx_er_Mg,2796.351,2780.,2810.,p=True)
-report_Mg = model_lmfit(m.modelMg,flx_norm_Mg, flx_er_norm_Mg, vel_Mg,p0_Mg,p=True)
-print(report_Mg)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-'''
-from astropy.io import ascii
-import numpy as np
-import matplotlib.pyplot as plt
-
-data = ascii.read('/home/ahmed/astro/data/rcs0327-knotE-allres-combwC1.txt')
-
-wave = data[0][:]
-zgal = 1.7037455
-wrest = wave/(1. + zgal)
-
-flux  = data[1][:]
-noise = data[2][:]
-# We now ignore the negative flux values in the spectrum
-q = np.where(flux > 0)
-wrest = wrest[q]
-flux  = flux[q]
-noise = noise[q]
-#### Getting the good data points only defined by the next two indices
-min_index = 8000
-max_index = 11950
-
-wrest = wrest[min_index:max_index]
-flux  = flux[min_index:max_index]
-noise = noise[min_index:max_index]
-### For the iron lines, I try to find the best window to work with it
-minFeindex = 2050
-maxFeindex = 3130
-wrestFe = wrest[minFeindex:maxFeindex]
-fluxFe  = flux[minFeindex:maxFeindex]
-noiseFe = noise[minFeindex:maxFeindex]
-
-### Doing the continuum fitting for Fe
-wmin = 2580.
-wmax = 2640.
-f = np.where((wrestFe > wmin) & (wrestFe < wmax))
-wrestFe_fit = np.delete(wrestFe, f)
-fluxFe_fit = np.delete(fluxFe,f)
-cont = np.poly1d(np.polyfit(wrestFe_fit, fluxFe_fit, 3))
-continuum = cont(wrestFe)
-fluxFe_norm = fluxFe/continuum
-noiseFe_norm = noiseFe/continuum
-
-fig1, ax1 = plt.subplots(2)
-ax1[0].step(wrestFe,fluxFe)
-ax1[0].step(wrestFe,continuum)
-ax1[0].step(wrestFe,noiseFe)
-ax1[0].set_xlabel('Wavelength')
-ax1[0].set_ylabel('Flux')
-
-ax1[1].step(wrestFe,fluxFe_norm)
-ax1[1].step(wrestFe,noiseFe_norm)
-ax1[1].set_xlabel('Wavelength')
-ax1[1].set_ylabel('Relative Flux')
+def model_curve_fit(func, vel, flx_norm, p0,flx_er_norm):
+    # p0 is the initial parameters
+    from scipy.optimize import curve_fit
+    popt, pcov = curve_fit(func, vel, flx_norm,p0,sigma=flx_er_norm)
+    print(popt)
+    print(pcov)
+    return popt, pcov
+p0 = [0.,0.7,0.4,1.1,1.7,1.,150.,100.]
+popt_muse, pcov_muse = model_curve_fit(m.modelFe, vel1, norm_flx,p0,norm_flx_err )
+#m.modelFe,flx_norm_Fe,flx_er_norm_Fe,vel_Fe,p0_Fe,p=True
+popt_magE, pcov_magE = model_curve_fit(m.modelFe, vel_Fe, flx_norm_Fe, p0, flx_er_norm_Fe)
+fig, ax = plt.subplots(2)
+ax[0].step(vel1, norm_flx, label='Normalized Flux Muse')
+ax[0].plot(vel1, m.modelFe(vel1,*popt_muse), 'y-',label='Model MUSE')
+#ax[0].step(vel1, norm_flx_err,'r',label='Error')
+#ax[0].legend(loc=0)
+ax[0].set_title('Normalized Flux Vs Velocity for '+str(cx)+' & '+str(cy)+'')
+ax[0].set_xlabel('Velocity')
+ax[0].set_ylabel('Normalized Flux')
+ax[0].set_xlim([-2100,6200])
+#ax[0].legend(loc=0,font=5)
+ax[0].step(vel_Fe, flx_norm_Fe, label='Normalized Flux MagE')
+ax[1].plot(vel_Fe, m.modelFe(vel_Fe,*popt_magE),'y-',label='Model MagE')
+ax[1].set_xlabel('Velocity')
+ax[1].set_ylabel('Normalized Flux')
+ax[1].set_xlim([-2100,6200])
 plt.show()
-
-import musetools.util as u
-lam_center = [2586.650,2600.173,2612.654,2626.451]
-vel = u.veldiff(wrestFe,lam_center[0])
-
-
-import musetools.modeling as m
-from lmfit import Model
-gmodel = Model(m.modelFe)
-result = gmodel.fit(fluxFe_norm, v = vel, v1=0, tau1=0.7, tau3=0.4, c1=1.1, c2=1.7,c3=1.,sigma1=150., sigma2=100.)
-print(result.fit_report())
-fig3, ax3 = plt.subplots()
-ax3.step(vel, fluxFe_norm, label='Relative Flux')
-ax3.plot(vel, result.best_fit, 'y-',label='Model')
-ax3.step(vel, noiseFe_norm,'r',label='Relative Error')
-ax3.set_title('Modeling FeII lines')
-ax3.set_xlabel('Velocity')
-ax3.set_ylabel('Relative Flux')
-plt.show()
-'''
