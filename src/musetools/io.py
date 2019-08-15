@@ -82,7 +82,6 @@ def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
 
     return image_SB
 
-
 def wl_image(wave, flux_data):
     '''
     wave:      is the wavelength array derived from the data cube

@@ -152,3 +152,97 @@ def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
 
 
     return output
+
+def airtovac(wave):
+    """ Convert air-based wavelengths to vacuum
+
+    Parameters:
+    ----------
+    wave: ndarray
+      Wavelengths
+
+    Returns:
+    ----------
+    wavelenght: ndarray
+      Wavelength array corrected to vacuum wavelengths
+    """
+    # Assume AA
+    wavelength = wave
+
+    # Standard conversion format
+    sigma_sq = (1.e4/wavelength)**2. #wavenumber squared
+    factor = 1 + (5.792105e-2/(238.0185-sigma_sq)) + (1.67918e-3/(57.362-sigma_sq))
+    factor = factor*(wavelength>=2000.) + 1.*(wavelength<2000.) #only modify above 2000A
+
+    # Convert
+    wavelength = wavelength*factor
+
+    return wavelength
+
+def compute_abs(wrest,flx_norm, lam_center, tau, f0, sig, vmin,vmax):
+    #F = 1. - flx_norm
+    vel = veldiff(wrest,lam_center)
+    l = np.where((vel < vmax) & (vel > vmin))
+    # equivalent width
+    ew = np.trapz(1.-flx_norm[l],x=wrest[l])
+    # Calculating the average velocity
+    norm = np.trapz(1. - flx_norm[l],x=vel[l])
+    v_avg = (1/norm)*np.trapz(vel[l]*(1. - flx_norm[l]),x=vel[l])
+    # Calculating the column density
+    b_D = (np.sqrt(2)* 2.35482 * sig)
+    N = (tau * b_D) / ((1.497* 10**(-15)) * lam_center * f0)
+    return ew, v_avg, np.log10(N)
+
+def compute_ems(wrest, flx_norm, lam_center, vmin, vmax):
+    vel =  veldiff(wrest, lam_center)
+    l = np.where((vel < vmax) & (vel > vmin))
+    # Equivalent Width
+    ew = np.trapz(1. - flx_norm[l],x=wrest[l])
+    # Average Velocity
+    #norm = np.trapz(flx_norm[l] -1.,x=vel[l])
+    #v_avg = (1/norm)*np.trapz(vel[l]*(flx_norm[l] - 1.),x=vel[l])
+    return ew#, v_avg
+
+def cont_func(wave, flx, flx_er, winmin, winmax, minw, maxw):
+    # wave: wavelength
+    # flx: flux
+    # flx_er: error in flux
+    # winmin: the start wavelength for the total shown window around the line
+    # winmax: the end wavelength for the total shown window around the line
+    # minw: the start wavelength of the narrow window around the line
+    # maxw: the end wavelegnth of the narrow window around the line
+    q1 = np.where((wave > winmin) & (wave < winmax))
+    wave = wave[q1]
+    flx  = flx[q1]
+    flx_er = flx_er[q1]
+    ### Doing the continuum fitting
+    q2 = np.where((wave > minw) & (wave < maxw))
+    wave_fit = np.delete(wave, q2)
+    flx_fit = np.delete(flx, q2)
+    cont = np.poly1d(np.polyfit(wave_fit, flx_fit, 3))
+    continuum = cont(wave)
+    flx_norm = flx/continuum
+    flx_er_norm = flx_er/continuum
+    return wave, flx, flx_er, continuum, flx_norm, flx_er_norm
+
+
+def multi_band(minwave, maxwave, wave, flux_data):
+    '''
+    minwave:   array of minimum wavelength of the narrow bands
+    maxwave:   array of maximum wavelength of the narrow bands
+    wave:      The wavelength interval from the data cube
+    flux_data: The 2-D flux data from the data cube
+
+    The output of this function is a wavelength narrow band image of the LensedArc
+    '''
+    q = []
+    image=np.zeros((349,352,len(minwave)))
+
+    for i in range(len(minwave)):
+        factor = 10.**(-20.)*(maxwave[i]-minwave[i]) / (0.2)**2.
+        q_i = np.where(( wave > minwave[i]) & (wave < maxwave[i]))# Defining the chosen wavelength interval
+        image[:,:,i] = (np.sum(flux_data[q_i,:,:], axis = 1))*factor              # We now sum the wavelength within the given interval
+
+    image_SB=np.sum(image,axis=2)
+
+    return image_SB
