@@ -15,15 +15,12 @@ xcen = info[0][:]
 ycen = info[1][:]
 zgal = info[4][:]
 
-import progressbar
+
 from time import sleep
-bar = progressbar.ProgressBar(maxval=20, \
-    widgets=[progressbar.Bar('=', '[', ']'), ' ', progressbar.Percentage()])
-
-
 import time
+from tqdm import tqdm
 start_time = time.time()
-for cx, cy, z in zip(xcen[11:], ycen[11:], zgal[11:]):
+for cx, cy, z in zip(xcen[:11], ycen[:11], zgal[:11]):
     data = ascii.read('/home/ahmed/Gdrive/astro/spectra/spectrum_mg_'+str(cx)+'_'+str(cy)+'.dat')
     wave = data['wave']
     wave = u.airtovac(wave)
@@ -42,8 +39,8 @@ for cx, cy, z in zip(xcen[11:], ycen[11:], zgal[11:]):
     ewems4_s = [];  #vems4_s = []
 
     print(''+str(cx)+'_'+str(cy)+'')
-    bar.start()
-    for i in range(s[0]):
+
+    for i in tqdm(range(s[0])):
         F_conv, F, Fabs, Fabs1, Fabs2, Fems, Fems1, Fems2, Fems3, Fems4, Fsys = m.model_Mg_comps(vel,*samples[i,:])
         #ew, vabs, logN = compute_abs(wrest,flx_norm, lam_center, tau, f0, sig, vmin,vmax)
         ew2796, vabs2796, logN2796 = u.compute_abs(wrest, Fabs1, lam_cen[0], samples[i,7], f0[0], samples[i,3], -1900., 20.)
@@ -62,9 +59,7 @@ for cx, cy, z in zip(xcen[11:], ycen[11:], zgal[11:]):
         ewems2_s.append(ewems2);  #vems2_s.append(vems2)
         ewems3_s.append(ewems3);  vems3_s.append(samples[i,2])
         ewems4_s.append(ewems4);  #vems4_s.append(vems4)
-        bar.update(i+1)
-        sleep(0.1)
-    bar.finish()
+        time.sleep(0.000000000000000000001)
     values = Table([ew2796_s, vabs2796_s, logN2796_s,
                     ew2803_s, vabs2803_s, logN2803_s,
                     ewems1_s, vems1_s,
