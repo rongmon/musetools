@@ -246,3 +246,54 @@ def multi_band(minwave, maxwave, wave, flux_data):
     image_SB=np.sum(image,axis=2)
 
     return image_SB
+
+
+def convolve_image(image,stdev=1.):
+   # We smooth with a Gaussian kernel with stddev=2
+   # It is a 9x9 array
+   kernel = Gaussian2DKernel(x_stddev=stdev)
+   # create a "fixed" image with NaNs replaced by interpolated values
+   # astropy's convolution replaces the NaN pixels with a kernel-weighted
+   # interpolation from their neighbors
+   astropy_conv = convolve(image, kernel)
+   mean_val=(np.mean(astropy_conv))
+   std_val=(np.std(astropy_conv))
+   sig_threshold=3.
+
+   qq=np.where((astropy_conv < sig_threshold*std_val))
+   qq_complement=np.where((astropy_conv >= sig_threshold*std_val))
+
+   ROI=deepcopy(astropy_conv)
+   ROI[qq]= 0.
+
+   #Now create a mask
+
+   Mask=deepcopy(astropy_conv)
+   Mask[qq_complement]=1.
+   Mask[qq]=0.
+
+   final_image= astropy_conv*Mask
+
+   return final_image,astropy_conv
+
+  def lnlike(theta, model, x, y, y_err):
+    l = -0.5 * (np.sum( ((y - model(x,*theta))/y_err) **2. ))
+    return l
+
+
+def lnprior(theta,lower,upper):
+    # theta: is the array that contain my parameters
+    # upper: upper bounds on my parameters
+    # lower: lower bounds on my parameters
+    for i in range(len(theta)):
+        if ((theta[i] < lower[i]) or (theta[i] > upper[i]) ):
+            return -np.inf
+            break
+
+    return 0.0
+
+def lnprob(theta, model, x, y, y_err, lower, upper):
+    lp = lnprior(theta, lower, upper)
+    if not np.isfinite(lp):
+        return -np.inf
+    return lp + lnlike(theta, model, x, y, y_err)

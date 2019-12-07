@@ -4,8 +4,8 @@ from astropy.convolution import convolve, Gaussian1DKernel
 import musetools.util as u
 
 def model_Fe(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c7,c8):
-    spec_res1=2.88145487703
-    spec_res2=2.57398611619
+    spec_res1=  2.62798855#2.88145487703    # For the lines set around 2300-2400 A
+    spec_res2=  2.55817449#2.57398611619    # For the lines set around 2600.
     '''
     vabs               # Absorption Velocity
     vems               # Emission Velocity
@@ -43,12 +43,18 @@ def model_Fe(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c7,c8):
     #lam_cen = [2586.650,2600.173,2612.654,2626.451,2632.1081]
     # The Velocity of the Emission line 2632
     # The Absorption component of the model
+    Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v < 0.0, v >= 0.0], [1., 0.]) +
+            c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v < (v2 - vabs), v >= (v2 - vabs)], [1., 0.]) +
+            c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v < (v3 - vabs), v >= (v3 - vabs)], [1., 0.]) +
+            c3 * tau1 * np.exp(-0.5*((v - v4)/sig1)**2.) * np.piecewise(v,[v < (v4 - vabs), v >= (v4 - vabs)], [1., 0.]) +
+            c4 * tau1 * np.exp(-0.5*((v - v5)/sig1)**2.) * np.piecewise(v,[v < (v5 - vabs), v >= (v5 - vabs)], [1., 0.]) )
+    """
     Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v<vabs, v>= vabs], [1., 0.]) +
             c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v<v2, v>= v2], [1., 0.]) +
             c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v<v3, v>= v3], [1., 0.]) +
             c3 * tau1 * np.exp(-0.5*((v - v4)/sig1)**2.) * np.piecewise(v,[v<v4, v>= v4], [1., 0.]) +
             c4 * tau1 * np.exp(-0.5*((v - v5)/sig1)**2.) * np.piecewise(v,[v<v5, v>= v5], [1., 0.]) )
-
+    """
     # The Emission Component of the model
     Fems = 1. + (tau2 * np.exp(-0.5*((v - (vems+u.veldiff(lam_cen[2],lam_cen[0])))/sig2)**2.) +
             c5 * tau2 * np.exp(-0.5*((v - v6)/sig2)**2.) +
@@ -83,8 +89,8 @@ def model_Fe(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c7,c8):
     return F_conv
 
 def model_Fe_comps(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c7,c8):
-    spec_res1=2.88145487703
-    spec_res2=2.57398611619
+    spec_res1=  2.62798855#2.88145487703    # For the lines set around 2300-2400 A
+    spec_res2=  2.55817449#2.57398611619    # For the lines set around 2600.
     '''
     vabs               # Absorption Velocity
     vems               # Emission Velocity
@@ -122,6 +128,18 @@ def model_Fe_comps(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c
     #lam_cen = [2586.650,2600.173,2612.654,2626.451,2632.1081]
     # The Velocity of the Emission line 2632
     # The Absorption component of the model
+    Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v < 0.0, v >= 0.0], [1., 0.]) +
+            c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v < (v2 - vabs), v >= (v2 - vabs)], [1., 0.]) +
+            c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v < (v3 - vabs), v >= (v3 - vabs)], [1., 0.]) +
+            c3 * tau1 * np.exp(-0.5*((v - v4)/sig1)**2.) * np.piecewise(v,[v < (v4 - vabs), v >= (v4 - vabs)], [1., 0.]) +
+            c4 * tau1 * np.exp(-0.5*((v - v5)/sig1)**2.) * np.piecewise(v,[v < (v5 - vabs), v >= (v5 - vabs)], [1., 0.]) )
+
+    Fabs1 = 1. - tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v < 0.0, v >= 0.0], [1., 0.]) #2586
+    Fabs2 = 1. - c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v < (v2 - vabs), v >= (v2 - vabs)], [1., 0.])  #2600
+    Fabs3 = 1. - c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v < (v3 - vabs), v >= (v3 - vabs)], [1., 0.])  #2344
+    Fabs4 = 1. - c3 * tau1 * np.exp(-0.5*((v - v4)/sig1)**2.) * np.piecewise(v,[v < (v4 - vabs), v >= (v4 - vabs)], [1., 0.])  #2374
+    Fabs5 = 1. - c4 * tau1 * np.exp(-0.5*((v - v5)/sig1)**2.) * np.piecewise(v,[v < (v5 - vabs), v >= (v5 - vabs)], [1., 0.])  #2382
+    """
     Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v<vabs, v>= vabs], [1., 0.]) +
             c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v<v2, v>= v2], [1., 0.]) +
             c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v<v3, v>= v3], [1., 0.]) +
@@ -132,6 +150,7 @@ def model_Fe_comps(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c
     Fabs3 = 1. - c2 * tau1 * np.exp(-0.5*((v - v3)/sig1)**2.) * np.piecewise(v,[v<v3, v>= v3], [1., 0.])  #2344
     Fabs4 = 1. - c3 * tau1 * np.exp(-0.5*((v - v4)/sig1)**2.) * np.piecewise(v,[v<v4, v>= v4], [1., 0.])  #2374
     Fabs5 = 1. - c4 * tau1 * np.exp(-0.5*((v - v5)/sig1)**2.) * np.piecewise(v,[v<v5, v>= v5], [1., 0.])  #2382
+    """
     # The Emission Component of the model
     Fems = 1. + (tau2 * np.exp(-0.5*((v - (vems+u.veldiff(lam_cen[2],lam_cen[0])))/sig2)**2.) +
             c5 * tau2 * np.exp(-0.5*((v - v6)/sig2)**2.) +
@@ -169,6 +188,11 @@ def model_Fe_comps(v,vabs,vems,sig1,sig2,sig3,tau1,tau2,tau3,c1,c2,c3,c4,c5,c6,c
     F_conv = F_conv1 * F_conv2
 
     return F_conv, F, Fabs, Fabs1, Fabs2, Fabs3, Fabs4, Fabs5, Fems, Fems1, Fems2, Fems3, Fems4, Fems5, Fsys
+
+
+def Fout_2586(v, vabs, sig1, tau1):
+    Fabs1 = 1. - tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) #2586
+    return Fabs1
 
 '''
 def modelFe(v,v1,v3,tau1,tau3,c1,c2,c3,sigma1,sigma2):#,sigma3,sigma4):
@@ -219,15 +243,19 @@ def model_Mg(v,vabs,vems1,vems2,sig1,sig2,sig3,sig4,tau1,tau2,tau3,tau4,c1,c2,c3
     #v5 = vems2 + u.veldiff(lam_cen[3],lam_cen[0])
     v6 = vems2 + dv#u.veldiff(lam_cen[5],lam_cen[2])
     # Absorption Component
+    Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) +
+            c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v< (v2 - vabs), v>= (v2 - vabs)], [1., 0.]) )
+    """
     Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v<vabs, v>=vabs], [1., 0.]) +
             c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v<v2, v>=v2], [1., 0.]) )
+    """
     # The Emission Component
     Fems = 1. + (tau2 * np.exp(-0.5*((v - vems1)/sig2)**2.) + c2 * tau2 * np.exp(-0.5*((v - v4)/sig2)**2.) +
             tau3 * np.exp(-0.5*((v - vems2)/sig3)**2.) + c3 * tau3 * np.exp(-0.5*((v - v6)/sig3)**2.) )
     # The Systematic Component
     Fsys = 1. - (tau4 * np.exp(-0.5*(v/sig4)**2.) + tau4 * np.exp(-0.5*((v - dv)/sig4)**2.))
     # for the convloution
-    spec_res = 2.542857
+    spec_res = 2.52001483#2.542857
     muse_kernel = ((spec_res/1.25)/2.355)
     F = Fabs * Fems * Fsys
     g = Gaussian1DKernel(stddev=muse_kernel)
@@ -265,11 +293,18 @@ def model_Mg_comps(v,vabs,vems1,vems2,sig1,sig2,sig3,sig4,tau1,tau2,tau3,tau4,c1
     #v5 = vems2 + u.veldiff(lam_cen[3],lam_cen[0])
     v6 = vems2 + dv#u.veldiff(lam_cen[5],lam_cen[2])
     # Absorption Component
+    Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) +
+            c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v< (v2 - vabs), v>= (v2 - vabs)], [1., 0.]) )
+
+    Fabs1 = 1. - tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v < 0.0, v >= 0.0], [1., 0.])
+    Fabs2 = 1. - c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v< (v2 - vabs), v >= (v2 - vabs)], [1., 0.])
+    """
     Fabs = 1. - (tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v<vabs, v>=vabs], [1., 0.]) +
             c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v<v2, v>=v2], [1., 0.]) )
 
     Fabs1 = 1. - tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v<vabs, v>=vabs], [1., 0.])
     Fabs2 = 1. - c1 * tau1 * np.exp(-0.5*((v - v2)/sig1)**2.) * np.piecewise(v,[v<v2, v>=v2], [1., 0.])
+    """
     # The Emission Component
     Fems = 1. + (tau2 * np.exp(-0.5*((v - vems1)/sig2)**2.) + c2 * tau2 * np.exp(-0.5*((v - v4)/sig2)**2.) +
             tau3 * np.exp(-0.5*((v - vems2)/sig3)**2.) + c3 * tau3 * np.exp(-0.5*((v - v6)/sig3)**2.) )
@@ -296,13 +331,16 @@ def model_Mg_comps(v,vabs,vems1,vems2,sig1,sig2,sig3,sig4,tau1,tau2,tau3,tau4,c1
     Fsys = 1. - (tau4 * np.exp(-0.5*(v/sig4)**2.) + tau4 * np.exp(-0.5*((v - dv_abs)/sig4)**2.))
     '''
     # for the convloution
-    spec_res = 2.542857
+    spec_res = 2.52001483#2.542857
     muse_kernel = ((spec_res/1.25)/2.355)
     F = Fabs * Fems * Fsys
     g = Gaussian1DKernel(stddev=muse_kernel)
     F_conv = convolve(F, g, boundary='extend')
     return F_conv, F, Fabs, Fabs1, Fabs2, Fems, Fems1, Fems2, Fems3, Fems4, Fsys
 
+def Fout_2796(v, vabs, sig1, tau1):
+    Fabs1 = 1. - tau1 * np.exp(-0.5*((v - vabs)/sig1)**2.) * np.piecewise(v,[v < 0.0, v>= 0.0], [1., 0.])
+    return Fabs1
 
 '''
 def modelMg(v,v1,v3,tau1,tau2,c1,c2,c3,sigma1,sigma2):
@@ -328,7 +366,8 @@ def model_OII(wave,z,tau,sigma):
     #wave = u.airtovac(wave)
     c = 1. # Get the Doublet ratio
     F = 1. + c* tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) + tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
-    muse_kernel = ((2.68871980676/1.25 )/ 2.355)#FWHM_avg = 2.50161030596 # Check the kernel for this part of the spectrum
+    spec_res = 2.59392978 #2.68871980676
+    muse_kernel = ((spec_res/1.25 )/ 2.355)#FWHM_avg = 2.50161030596 # Check the kernel for this part of the spectrum
     g = Gaussian1DKernel(stddev=muse_kernel)
     fmodel = convolve(F, g, boundary='extend')
     return fmodel
@@ -340,7 +379,8 @@ def model_CIII(wave,z,tau,sigma):
     lam2_obs = (1. + z) * lam2
     c = 1.55 # Get the Doublet ratio
     F = 1. + c* tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) + tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
-    muse_kernel = ((2.60364004044/1.25 )/ 2.355)#FWHM_avg = 2.50161030596 # Check the kernel for this part of the spectrum
+    spec_res =  2.83127078#2.60364004044
+    muse_kernel = ((spec_res/1.25 )/ 2.355)#FWHM_avg = 2.50161030596 # Check the kernel for this part of the spectrum
     g = Gaussian1DKernel(stddev=muse_kernel)
     fmodel = convolve(F, g, boundary='extend')
     return fmodel
