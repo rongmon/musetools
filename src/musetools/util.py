@@ -1,6 +1,10 @@
 from __future__ import print_function, absolute_import, division, unicode_literals
 import numpy as np
-
+from scipy.optimize import curve_fit
+import corner
+from multiprocessing import Pool
+import emcee
+import matplotlib.pyplot as plt
 
 def veldiff(wave,wave_center):
     z = (wave / wave_center) - 1.
@@ -120,9 +124,6 @@ def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
         output["col"]=col
         output["colerr"]=colerr
         output["Tau_a"]=Tau_a
-
-
-
 
 
     # If plot keyword is  set start plotting
@@ -297,3 +298,112 @@ def lnprob(theta, model, x, y, y_err, lower, upper):
     if not np.isfinite(lp):
         return -np.inf
     return lp + lnlike(theta, model, x, y, y_err)
+
+
+
+def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, walkers_dir, corner_dir, plot=False, write=False):
+    """
+    model: given model to fit the data
+    x:     the x data points (Independant variable)
+    y:     the y data points (Dependant varilable)
+    y_err: the error on the y data points
+    p0:    an array that have initial vlues for the model parameters
+    p_low: lower limits on the model parameters (lower bounds of the parameter space)
+    p_up:  upper limits on the model Parameters (uppper bounds of the parameter space)
+    p_names: an arrays that contains the names of each parameter to be used in the plots
+    names:   an array that will have strings to mark the names of the output files
+    samples_dir: the directory where you want to save your output parameters values
+    walkers_dir: the directory where you want to save the walkers figures
+    corner_dir : the directory where you want to save the corner figures
+    plot: it can have two logical values either True or False to make or not make plots  (default: False)
+    write: it can have two logical values either True or False to write or not write your arrays and plots (default: False)
+    """
+    import matplotlib.pyplot as plt 
+    import matplotlib as mpl
+    mpl.rcParams.update(mpl.rcParamsDefault)
+    mpl.rc('text',usetex=True)
+    XSMALL_SIZE = 10
+    SMALL_SIZE = 12
+    MEDIUM_SIZE = 14
+    LARGE_SIZE = 16
+    XLARGE_SIZE = 18
+    XXLARGE_SIZE = 24
+
+    plt.rc('font',size=SMALL_SIZE)
+    plt.rc('axes',titlesize=XLARGE_SIZE)
+    plt.rc('axes',labelsize=LARGE_SIZE)
+    plt.rc('axes',labelweight=700)
+    plt.rc('axes',titleweight=700)
+    plt.rc('xtick',labelsize=MEDIUM_SIZE)
+    plt.rc('ytick',labelsize=MEDIUM_SIZE)
+    plt.rc('legend',fontsize=XSMALL_SIZE)
+    plt.rc('figure',titlesize=XXLARGE_SIZE)
+
+    mpl.rcParams['font.family'] = 'serif'
+    mpl.rcParams['font.serif'] = 'Times'
+    mpl.rcParams['font.monospace'] = 'Ubuntu mono'
+
+    x = np.asarray(x);    y = np.asarray(y);          y_err = np.asarray(y_err)
+    p0 = np.asarray(p0);  p_low = np.asarray(p_low);  p_up = np.asarray(p_up)
+
+    popt, pcov = curve_fit(model, x, y, p0, sigma= y_err, bounds=(p_low, p_up))
+    perr = np.sqrt(np.diag(pcov))
+
+    popt = np.around(popt, decimals=3)
+    ndim, nwalkers = int(len(p0)), 50
+
+    pos = [popt + 1e-5* np.random.randn(ndim) for i in range(nwalkers)]
+
+    with Pool() as pool:
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, lnprob, pool=pool, args=(model, x, y, y_err[:], p_low, p_up))
+        n = 1500
+        sampler.run_mcmc(pos, n, progress=True)
+    samples = sampler.chain[:,int(0.2*n):,:].reshape((-1,ndim))
+    if write == True:
+        np.save(samples_dir+'samples'+names[0]+'_'+names[1]+'.npy',samples)
+    if plot == True:
+        fig_height = int(len(p0) * 4)
+        fig_width  = 12
+        plt.close()
+        fig, ax = plt.subplots(ndim)
+        fig.set_figheight(fig_height)
+        fig.set_figwidth(fig_width)
+        fig.suptitle('Walkers')
+        for i in range(ndim):
+            ax[i].plot(sampler.chain[:,:,i].T,'k', alpha=0.2)
+            ax[i].set_ylabel(pnames[i])
+            ax[i].set_xlabel('Steps Number')
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.94)
+        plt.show()
+        fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'.pdf', overwrite=True, bbox_inches='tight', dpi=300)
+        fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'.png', overwrite=True, bbox_inches='tight', dpi=300)
+
+    flat_samples = sampler.get_chain(discard=int(0.2*n), flat=True)
+    p_opt = []; up_sig = []; lw_sig = [];
+    for i in range(ndim):
+        mcmc = np.percentile(flat_samples[:,i],[16,50,84])
+        q = np.diff(mcmc)
+        p_opt.append(mcmc[1])
+        up_sig.append(q[1])
+        lw_sig.append(q[0])
+    if plot == True:
+        plt.close()
+        figure = corner.corner(samples, labels = pnames, quantiles=[0.16, 0.5, 0.84],show_titles=True, title_kwargs={"fontsize": 12})
+        # Loop over the diagonal
+        axes = np.array(figure.axes).reshape((ndim, ndim))
+        for i in range(ndim):
+            ax = axes[i, i]
+            ax.axvline(p_opt[i], color="b",alpha=0.5)
+        for yi in range(ndim):
+            for xi in range(yi):
+                ax = axes[yi, xi]
+                ax.axvline(p_opt[xi], color="b",alpha=0.5)
+                ax.axhline(p_opt[yi], color="b",alpha=0.5)
+                ax.plot(p_opt[xi], p_opt[yi], "sb")
+        plt.show()
+        figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'.pdf',overwrite=True,bbox_inches='tight',dpi=300)
+        figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'.png',overwrite=True,bbox_inches='tight',dpi=300)
+
+
+    return p_opt, up_sig, lw_sig
