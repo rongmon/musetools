@@ -1,10 +1,16 @@
 from __future__ import print_function, absolute_import, division, unicode_literals
 import numpy as np
+from astropy.convolution import Gaussian2DKernel, convolve
+from copy import deepcopy
+import math as mt
 from scipy.optimize import curve_fit
 import corner
 from multiprocessing import Pool
 import emcee
 import matplotlib.pyplot as plt
+
+from scipy import interpolate
+
 
 def veldiff(wave,wave_center):
     z = (wave / wave_center) - 1.
@@ -15,6 +21,32 @@ def veldiff(wave,wave_center):
 
 
 import numpy as np
+
+
+
+def spectral_res(obs_lambda):
+    l_obs = np.asarray([ 4650., 5000., 5500., 6000., 6500., 7000., 7500., 8000., 8500., 9000., 9350.])
+    R     = np.asarray([ 1609., 1750., 1978., 2227., 2484., 2737., 2975., 3183., 3350., 3465., 3506.])
+    R_err = np.asarray([    6.,    4.,    6.,    6.,    5.,    4.,    4.,    4.,    4.,    5.,   10.])
+    l_ex  = np.linspace(4650., 9350., 5000)
+    spl = 299792.458 # speed of light km/s
+    V = (1/R)*spl
+
+    f = interpolate.interp1d(l_obs, R, fill_value="extrapolate")
+
+    mark = 5
+
+    R_res = f(l_ex)
+
+    V_res = (1 / R_res) * spl
+
+    specR_res = f(obs_lambda)
+    vel_res = (1 / specR_res) * spl
+    lam_res = (obs_lambda / specR_res)
+    return lam_res, vel_res
+
+
+
 def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
     #------------------------------------------------------------------------------------------
     #   Function to compute the equivalent width within a given velocity limits lmts=[vmin,vmax]
@@ -126,6 +158,9 @@ def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
         output["Tau_a"]=Tau_a
 
 
+
+
+
     # If plot keyword is  set start plotting
     if plot is not False:
         import matplotlib.pyplot as plt
@@ -184,7 +219,8 @@ def compute_abs(wrest,flx_norm, lam_center, tau, f0, sig, vmin,vmax):
     #F = 1. - flx_norm
     vel = veldiff(wrest,lam_center)
     l = np.where((vel < vmax) & (vel > vmin))
-    # equivalent width
+    # equivalent widthfrom scipy.optimize import curve_fit
+
     ew = np.trapz(1.-flx_norm[l],x=wrest[l])
     # Calculating the average velocity
     norm = np.trapz(1. - flx_norm[l],x=vel[l])
@@ -212,12 +248,12 @@ def cont_func(wave, flx, flx_er, winmin, winmax, minw, maxw):
     # winmax: the end wavelength for the total shown window around the line
     # minw: the start wavelength of the narrow window around the line
     # maxw: the end wavelegnth of the narrow window around the line
-    q1 = np.where((wave > winmin) & (wave < winmax))
+    q1 = np.where((wave >= winmin) & (wave <= winmax))
     wave = wave[q1]
     flx  = flx[q1]
     flx_er = flx_er[q1]
     ### Doing the continuum fitting
-    q2 = np.where((wave > minw) & (wave < maxw))
+    q2 = np.where((wave >= minw) & (wave <= maxw))
     wave_fit = np.delete(wave, q2)
     flx_fit = np.delete(flx, q2)
     cont = np.poly1d(np.polyfit(wave_fit, flx_fit, 3))
@@ -237,7 +273,8 @@ def multi_band(minwave, maxwave, wave, flux_data):
     The output of this function is a wavelength narrow band image of the LensedArc
     '''
     q = []
-    image=np.zeros((349,352,len(minwave)))
+    sh = flux_data.shape
+    image = np.zeros((sh[1],sh[2], sh[0]))#np.zeros((349,352,len(minwave)))
 
     for i in range(len(minwave)):
         factor = 10.**(-20.)*(maxwave[i]-minwave[i]) / (0.2)**2.
@@ -246,6 +283,62 @@ def multi_band(minwave, maxwave, wave, flux_data):
 
     image_SB=np.sum(image,axis=2)
 
+    return image_SB
+
+
+
+def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
+    '''
+    minwave:   minimum wavelength of the narrow band
+    maxwave:   maximum wavelength of the narrow band
+    wave:      The wavelength interval from the data cube
+    flux_data: The 2-D flux data from the data cube
+
+    The output of this function is a wavelength narrow band image of the LensedArc
+    '''
+    q = np.where(( wave > minwave) & (wave < maxwave)) # Defining the chosen wavelength interval
+    image = np.sum(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
+    factor = 10.**(-20.)*(maxwave-minwave) / (0.2)**2.
+    image_SB = image[0,:,:]*factor
+    q_nan = np.isnan(image_SB)
+    q_neg = np.where(image_SB < 0.0)
+    image_SB[q_nan] = 0.0
+    image_SB[q_neg] = 0.0
+    if plot== True:
+        #title = input('Enter the title of the plot: ')
+        width_in = 10
+        fig=plt.figure(1, figsize=(width_in, 15))
+        #fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
+        #ax.set_ylim([205,300])
+        #ax.set_title(title)
+        plt.show()
+
+    return image_SB
+
+def wl_image(wave, flux_data):
+    '''
+    wave:      is the wavelength array derived from the data cube
+    flux_data: the 2-D flux data from the data cube.
+
+    The output of this function is a 2-D image of the LensedArc with summing the total wavelength array.
+    '''
+    q=np.where(( wave > float(wave[0])) & (wave < float(wave[-1])))  # Choosing specific wavelength interval to view (In my case, I used all the wavelength interval)
+    image = np.sum(flux_data[q,:,:],axis=1)  # We now sum all the wavelength
+    factor = 10.**(-20.)*(wave[-1]-wave[0]) / (0.2)**2.
+    image_SB = image[0,:,:] * factor
+    q_nan = np.isnan(image_SB)
+    q_neg = np.where(image_SB < 0.0)
+    image_SB[q_nan] = 0.0
+    image_SB[q_neg] = 0.0
+    # We will plot the image now using log10 scaling
+    '''
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    d = ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
+    plt.show()
+    '''
     return image_SB
 
 
@@ -277,7 +370,8 @@ def convolve_image(image,stdev=1.):
 
    return final_image,astropy_conv
 
-  def lnlike(theta, model, x, y, y_err):
+
+def lnlike(theta, model, x, y, y_err):
     l = -0.5 * (np.sum( ((y - model(x,*theta))/y_err) **2. ))
     return l
 
@@ -301,6 +395,8 @@ def lnprob(theta, model, x, y, y_err, lower, upper):
 
 
 
+
+
 def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, walkers_dir, corner_dir, plot=False, write=False):
     """
     model: given model to fit the data
@@ -318,7 +414,7 @@ def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, 
     plot: it can have two logical values either True or False to make or not make plots  (default: False)
     write: it can have two logical values either True or False to write or not write your arrays and plots (default: False)
     """
-    import matplotlib.pyplot as plt 
+    import matplotlib.pyplot as plt
     import matplotlib as mpl
     mpl.rcParams.update(mpl.rcParamsDefault)
     mpl.rc('text',usetex=True)
@@ -371,13 +467,15 @@ def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, 
         fig.suptitle('Walkers')
         for i in range(ndim):
             ax[i].plot(sampler.chain[:,:,i].T,'k', alpha=0.2)
-            ax[i].set_ylabel(pnames[i])
+            ax[i].set_ylabel(p_names[i])
             ax[i].set_xlabel('Steps Number')
         fig.tight_layout()
         fig.subplots_adjust(top=0.94)
-        plt.show()
+        #plt.show()
         fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'.pdf', overwrite=True, bbox_inches='tight', dpi=300)
-        fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'.png', overwrite=True, bbox_inches='tight', dpi=300)
+        fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'.png', overwrite=True, bbox_inches='tight', dpi=100)
+        #fig.savefig(walkers_dir+'walkers'+names[0]+'_'+names[1]+'_600.png', overwrite=True, bbox_inches='tight', dpi=600)
+        plt.close()
 
     flat_samples = sampler.get_chain(discard=int(0.2*n), flat=True)
     p_opt = []; up_sig = []; lw_sig = [];
@@ -389,7 +487,7 @@ def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, 
         lw_sig.append(q[0])
     if plot == True:
         plt.close()
-        figure = corner.corner(samples, labels = pnames, quantiles=[0.16, 0.5, 0.84],show_titles=True, title_kwargs={"fontsize": 12})
+        figure = corner.corner(samples, labels = p_names, quantiles=[0.16, 0.5, 0.84],show_titles=True, title_kwargs={"fontsize": 12})
         # Loop over the diagonal
         axes = np.array(figure.axes).reshape((ndim, ndim))
         for i in range(ndim):
@@ -401,9 +499,70 @@ def emcee_fit(model, x, y, y_err, p0, p_low, p_up, p_names, names, samples_dir, 
                 ax.axvline(p_opt[xi], color="b",alpha=0.5)
                 ax.axhline(p_opt[yi], color="b",alpha=0.5)
                 ax.plot(p_opt[xi], p_opt[yi], "sb")
-        plt.show()
+        #plt.show()
         figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'.pdf',overwrite=True,bbox_inches='tight',dpi=300)
-        figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'.png',overwrite=True,bbox_inches='tight',dpi=300)
+        figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'.png',overwrite=True,bbox_inches='tight',dpi=100)
+        #figure.savefig(corner_dir+'corner'+names[0]+'_'+names[1]+'_600.png',overwrite=True,bbox_inches='tight',dpi=600)
+        plt.close()
 
 
     return p_opt, up_sig, lw_sig
+
+
+
+
+
+
+###    Compute the angular diameter distance
+def ang_DA(w_m, w_l, z):
+    """
+    Constants
+    h  : Dimensionless Parameter
+    H0 : Current Value of Hubble Parameter measured in km s^{−1} Mpc^{−1}
+    DH : Hubble Distance in meters    # DH = c/H0 = 3000 * (1/h) # in Mpc
+    Inputs and variables:
+    w_m : Matter Density Parameter       (dimensionless)
+    w_l : Dark Energy Density Parameter  (dimensionless)
+    w_k : Curvature Parameter            (dimensionless)
+    E_z : Defined function of the redshift
+    z   : is the redshift of the object
+    Dc  : line of sight comoving distance
+    Dm  : is the transverse comoving distance
+    D_A : is the angular diameter distance of the object (will be given in meters)
+    """
+
+    # Defining our constants
+    h = 0.7                        # Dimensionless Parameter
+    H0 = 0.7 * 100.                # Current Value of Hubble Parameter measured in km s^{−1} Mpc^{−1}
+    DH = 9.26 * 10**(25) * (1/h)   # Hubble Distance in meters    # DH = c/H0 = 3000 * (1/h) # in Mpc
+
+
+    w_k = 1. - w_m - w_l
+
+
+    zd = np.linspace(0., z, 1000)
+    E_z = np.sqrt( w_m * ((1. + zd)**3.) + w_k * ((1. + zd)**2)  + w_l)
+
+    Dc = DH * np.trapz( (1. / E_z) , x=zd )     # sight of line comoving distance
+
+    # Defining the trnasverse comoving distance
+    #print(w_k)
+    if w_k > 0.0:
+        Dm = (DH / np.sqrt(w_k) * np.sinh( (np.sqrt(w_k) * Dc )/ DH ) )   # for w_k > 0.0
+    elif w_k == 0.0:
+        Dm = Dc     # for w_k = 0.0
+    else:
+        Dm = (DH / np.sqrt( np.abs(w_k)) * np.sinh( (np.sqrt(np.abs(w_k)) * Dc )/ DH ) )  # for w_k < 0.0
+
+
+    D_A = Dm / (1. + z)
+
+    return D_A#/DH#, Dm, Dc
+
+
+
+def ang_sep_D(cen, xc, yc):
+    d  = np.arccos(np.sin(np.radians(cen[1])) * np.sin(np.radians(yc)) + np.cos(np.radians(cen[1])) * np.cos(np.radians(yc)) * np.cos(np.radians( cen[0] - xc )))
+    # d is given in radians
+    return d
+
