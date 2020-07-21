@@ -245,4 +245,26 @@ def multi_band(minwave, maxwave, wave, flux_data):
 
     image_SB=np.sum(image,axis=2)
 
-    return image_SB
+    return image_S
+
+def lnlike(theta, model, x, y, y_err):
+    l = -0.5 * (np.sum( ((y - model(x,*theta))/y_err) **2. ))
+    return l
+
+
+def lnprior(theta,lower,upper):
+    # theta: is the array that contain my parameters
+    # upper: upper bounds on my parameters
+    # lower: lower bounds on my parameters
+    for i in range(len(theta)):
+        if ((theta[i] < lower[i]) or (theta[i] > upper[i]) ):
+            return -np.inf
+            break
+
+    return 0.0
+
+def lnprob(theta, model, x, y, y_err, lower, upper):
+    lp = lnprior(theta, lower, upper)
+    if not np.isfinite(lp):
+        return -np.inf
+    return lp + lnlike(theta, model, x, y, y_err)
