@@ -283,9 +283,6 @@ def multi_band(minwave, maxwave, wave, flux_data):
 
     image_SB=np.sum(image,axis=2)
 
-<<<<<<< HEAD
-    return image_S
-=======
     return image_SB
 
 
@@ -373,7 +370,6 @@ def convolve_image(image,stdev=1.):
 
    return final_image,astropy_conv
 
->>>>>>> 99f7f13a09354f53369473a4ea7e80ff90b2477b
 
 def lnlike(theta, model, x, y, y_err):
     l = -0.5 * (np.sum( ((y - model(x,*theta))/y_err) **2. ))
@@ -396,8 +392,6 @@ def lnprob(theta, model, x, y, y_err, lower, upper):
     if not np.isfinite(lp):
         return -np.inf
     return lp + lnlike(theta, model, x, y, y_err)
-<<<<<<< HEAD
-=======
 
 
 
@@ -572,4 +566,3 @@ def ang_sep_D(cen, xc, yc):
     # d is given in radians
     return d
 
->>>>>>> 99f7f13a09354f53369473a4ea7e80ff90b2477b

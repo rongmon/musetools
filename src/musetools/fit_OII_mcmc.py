@@ -121,6 +121,7 @@ plt.close
 
 fig, ax = plt.subplots()
 ax.step(wave,flx_norm,label='Normalized Flux')
+ax.step(wave,flx_er_norm,label='Error')
 ax.step(wave,m.model_OII(wave,*p_opt),label='Model')
 ax.set_title('Fitting the OII doublet for the Stacked Spectrum')
 ax.set_xlabel('$Wavelength \lambda [\AA]$')
@@ -128,6 +129,7 @@ ax.set_ylabel('Normalized Flux')
 ax.set_xlim([6640.,6750.])
 ax.legend(loc=0)
 fig.savefig('/home/ahmed/Gdrive/astro/samples_emcee/OII/fitting/fit_OII_stacked_spectrum.pdf',overwrite=True)
+
 
 info = Table([[p_opt[0]],[lw_sig[0]],[up_sig[0]]], names = ['z','z_low','z_high'])
 ascii.write(info,'/home/ahmed/Gdrive/astro/samples_emcee/OII/redshift.dat',overwrite=True)
