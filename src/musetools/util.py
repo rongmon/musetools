@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from musetools import io as io
 from astropy.nddata import Cutout2D
 from astropy.wcs import WCS
-rom astropy.modeling import models, fitting
+from astropy.modeling import models, fitting
 from linetools.spectra.xspectrum1d import XSpectrum1D
 import warnings
 from matplotlib import path
