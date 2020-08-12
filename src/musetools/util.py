@@ -8,6 +8,9 @@ import corner
 from multiprocessing import Pool
 import emcee
 import matplotlib.pyplot as plt
+from musetools import io as io
+from astropy.nddata import Cutout2D
+from astropy.wcs import WCS
 
 from scipy import interpolate
 
@@ -241,6 +244,8 @@ def compute_ems(wrest, flx_norm, lam_center, vmin, vmax):
     return ew#, v_avg
 
 def cont_func(wave, flx, flx_er, winmin, winmax, minw, maxw):
+    """
+    Input:
     # wave: wavelength
     # flx: flux
     # flx_er: error in flux
@@ -248,6 +253,10 @@ def cont_func(wave, flx, flx_er, winmin, winmax, minw, maxw):
     # winmax: the end wavelength for the total shown window around the line
     # minw: the start wavelength of the narrow window around the line
     # maxw: the end wavelegnth of the narrow window around the line
+
+    output:
+    wave, flx, flx_er, continuum, flx_norm, flx_er_norm
+    """
     q1 = np.where((wave >= winmin) & (wave <= winmax))
     wave = wave[q1]
     flx  = flx[q1]
@@ -283,9 +292,6 @@ def multi_band(minwave, maxwave, wave, flux_data):
 
     image_SB=np.sum(image,axis=2)
 
-<<<<<<< HEAD
-    return image_S
-=======
     return image_SB
 
 
@@ -373,7 +379,7 @@ def convolve_image(image,stdev=1.):
 
    return final_image,astropy_conv
 
->>>>>>> 99f7f13a09354f53369473a4ea7e80ff90b2477b
+
 
 def lnlike(theta, model, x, y, y_err):
     l = -0.5 * (np.sum( ((y - model(x,*theta))/y_err) **2. ))
@@ -396,8 +402,7 @@ def lnprob(theta, model, x, y, y_err, lower, upper):
     if not np.isfinite(lp):
         return -np.inf
     return lp + lnlike(theta, model, x, y, y_err)
-<<<<<<< HEAD
-=======
+
 
 
 
@@ -572,4 +577,72 @@ def ang_sep_D(cen, xc, yc):
     # d is given in radians
     return d
 
->>>>>>> 99f7f13a09354f53369473a4ea7e80ff90b2477b
+
+#Function to perform the image cutout... eventually merge into musetools
+def trim_cube_with_header(fitsfile,size = (200, 100), position = (200., 250.)):
+    """ Trims MUSE ZAP datacube to remove bad pixels and reconstructs the header
+    Parameters:
+    ----------
+    fluxfile  : name of the flux file
+    size= (y,x) size of the cutout image in pixels
+    position = (y,x) central position of the cutout in pixels
+    Returns:
+    ----------
+    newflux, newvar :  New trimmed flux and variance cubes
+    newhdr_flx,newhrd_var: new updated headers
+    """
+    wave, fluxmsky, var, hdu_hdr = io.open_muse_cube(fitsfile)
+    crval3 = hdu_hdr['CRVAL3']
+    crpix3 = hdu_hdr['CRPIX3']
+    cd3_3 = hdu_hdr['CD3_3']
+    wavedim = hdu_hdr['NAXIS3']
+
+
+
+    wavedim, ydim, xdim = fluxmsky.shape
+
+    header =io.tweak_header(deepcopy(hdu_hdr))
+
+
+
+    q=np.isnan(fluxmsky)
+    fluxmsky[q]=0.
+    qq=np.isnan(var)
+    fluxmsky[q]=0.
+    #position = (16.5, 47.5)
+    #size = (66, 25)     # pixels
+
+
+    newflux=np.zeros((wavedim,size[0],size[1]))
+    newvar=np.zeros((wavedim,size[0],size[1]))
+
+    cutout=Cutout2D(fluxmsky[0,:,:], position, size, wcs=WCS(header).celestial)
+
+
+    index=cutout.bbox_original
+
+    newflux=fluxmsky[:,index[0][0]:index[0][1],index[1][0]:index[1][1]]
+    newvar=var[:,index[0][0]:index[0][1],index[1][0]:index[1][1]]
+
+
+
+
+    # Construct new header
+
+    temp=cutout.wcs.to_header()
+
+
+    newhdr_flx=deepcopy(hdu_hdr)
+    newhdr_flx['NAXIS1']=size[1]
+    newhdr_flx['NAXIS2']=size[0]
+    newhdr_flx['CRPIX1']=temp['CRPIX1']
+    newhdr_flx['CRPIX2']=temp['CRPIX2']
+    newhdr_flx['CRVAL3']=crval3
+    newhdr_flx['CRPIX3']=crpix3
+    newhdr_flx['CD3_3']=cd3_3
+    newhdr_flx['NAXIS3']=wavedim
+
+
+
+
+    return newflux,newvar,newhdr_flx

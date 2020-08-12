@@ -2,391 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, Gaussian1DKernel
 import musetools.util as u
-
-
-
-#####################################################################################
-#                    New Models as described in  Rubin et al 2014
-#####################################################################################
-
-####################### Fe II Full Model ############################################
-def model_FeII_full(v, vout0, vems, b_D, b_D_sys, b_D_ems, logN, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
-    """
-    The output of this function is the full convolved profile for the Fe II: F_conv
-    v: is the input velocity array of the spectrum with respect to 2586. use veldiff() to transform from rest-frame wavelength into velocity
-    
-    The free parameters for this model are:
-    1- vout0: is the velocity of the centroid of tau of the Fe II outflowing component
-    2- vems: is the centroid velocity for the Fe II emission component
-    3- b_D: Doppler velocity width for tau the outflowing component
-    4- b_D_sys: Doppler velocity width for tau of the systemic component
-    5- b_D_ems: Doppler velocity width for the emisssion component
-    6- logN: Column density of the Fe II outflowing component
-    7- logN_sys: Column density of the Fe II systemic component
-    8- A: is the normalized flux amplitude for the emission line 2612
-    9- c_ems1: is the line ratio between Fe II emission lines 2626/2612
-    10- c_ems2: is the line ratio between Fe II emission lines 2632/2612
-    11- c_ems3: is the line ratio between Fe II emission lines 2365/2612
-    12- c_ems4: is the line ratio between Fe II emission lines 2396/2612
-    
-    You can try to use the covering fractions as free parameters:
-    Cf_sys: is the covering fraction for the systemic component
-    Cf_out: is the covering fraction for the outflowing component
-    
-    Both of them are constant and equal to 1 in this version of the model: Cf_sys = Cf_out = 1.0
-    
-    """
-    Cf_sys = 1.0
-    Cf_out = 1.0
-    
-    
-    z_r = 1.7039397365102  # The global redshift value for the galaxy, It is used to get the observed wavelength for Fe II lines, that will be used to get the muse resolution corresponding to this wavelength before convolving the model
-    N = 10.**logN
-    N_sys = 10.**logN_sys
-    
-    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
-    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764]
-    f0 =          [0.069125,   0.2394,   0.1142,   0.0313, 0.320]
-
-    '''
-    Absorption lines: 2344.212, 2374.460, 2382.764, 2586.650, 2600.173
-    Emission lines: 2365.552, 2396.355, 2612.654, 2626.451, 2632.1081
-    '''
-    # Absorption Lines Velocities with respect to the Fe II absorption line 2586  
-    dv_abs1 = u.veldiff(lam_cen_abs[1],lam_cen_abs[0]); vout1 = vout0 + dv_abs1           # Velocity difference between the absorption lines 2600 and 2586
-    dv_abs2 = u.veldiff(lam_cen_abs[2],lam_cen_abs[0]); vout2 = vout0 + dv_abs2           # Velocity difference between the absorption lines 2344 and 2586
-    dv_abs3 = u.veldiff(lam_cen_abs[3],lam_cen_abs[0]); vout3 = vout0 + dv_abs3           # Velocity difference between the absorption lines 2374 and 2586
-    dv_abs4 = u.veldiff(lam_cen_abs[4],lam_cen_abs[0]); vout4 = vout0 + dv_abs4           # Velocity difference between the absorption lines 2382 and 2586
-    # Emission Lines Velocities with respect to the Fe II absorption line 2586
-    dv_ems0 = u.veldiff(lam_cen_ems[0],lam_cen_abs[0]);  vems0 = vems + dv_ems0           # Velocity difference between the emission line 2612 and absorption line 2586 
-    dv_ems1 = u.veldiff(lam_cen_ems[1],lam_cen_abs[0]);  vems1 = vems + dv_ems1           # Velocity difference between the emission line 2626 and absorption line 2586
-    dv_ems2 = u.veldiff(lam_cen_ems[2],lam_cen_abs[0]);  vems2 = vems + dv_ems2           # Velocity difference between the emission line 2632 and absorption line 2586
-    dv_ems3 = u.veldiff(lam_cen_ems[3],lam_cen_abs[0]);  vems3 = vems + dv_ems3           # Velocity difference between the emission line 2365 and absorption line 2586
-    dv_ems4 = u.veldiff(lam_cen_ems[4],lam_cen_abs[0]);  vems4 = vems + dv_ems4           # Velocity difference between the emission line 2396 and absorption line 2586
-    
-
-    # Tau for the outflowing component for each absorption line
-    tau_out0 = (1.497e-15 * lam_cen_abs[0] * f0[0]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout0) / b_D )**2. ) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) # tau for the Outflow at 2586
-    tau_out1 = (1.497e-15 * lam_cen_abs[1] * f0[1]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout1) / b_D )**2. ) * np.piecewise(v,[v< dv_abs1, v>= dv_abs1], [1., 0.])  # tau for the Outflow at 2600 
-    tau_out2 = (1.497e-15 * lam_cen_abs[2] * f0[2]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout2) / b_D )**2. ) * np.piecewise(v,[v< dv_abs2, v>= dv_abs2], [1., 0.]) # tau for the Outflow at 2344
-    tau_out3 = (1.497e-15 * lam_cen_abs[3] * f0[3]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout3) / b_D )**2. ) * np.piecewise(v,[v< dv_abs3, v>= dv_abs3], [1., 0.]) # tau for the Outflow at 2374
-    tau_out4 = (1.497e-15 * lam_cen_abs[4] * f0[4]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout4) / b_D )**2. ) * np.piecewise(v,[v< dv_abs4, v>= dv_abs4], [1., 0.])# tau for the Outflow at 2382
-    
-    # Tau for the systemic component for each absorption line
-    tau_sys0 = (1.497e-15 * lam_cen_abs[0] * f0[0]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v) / b_D_sys )**2. )           # tau for the Systemic at 2586
-    tau_sys1 = (1.497e-15 * lam_cen_abs[1] * f0[1]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs1) / b_D_sys )**2. ) # tau for the Systemic at 2600
-    tau_sys2 = (1.497e-15 * lam_cen_abs[2] * f0[2]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs2) / b_D_sys )**2. ) # tau for the Systemic at 2344
-    tau_sys3 = (1.497e-15 * lam_cen_abs[3] * f0[3]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs3) / b_D_sys )**2. ) # tau for the Systemic at 2374
-    tau_sys4 = (1.497e-15 * lam_cen_abs[4] * f0[4]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs4) / b_D_sys )**2. ) # tau for the Systemic at 2382
-    
-    # The Full outflowing component
-    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.])\
-             + (- Cf_out + Cf_out * np.exp(-tau_out1) )\
-             + (- Cf_out + Cf_out * np.exp(-tau_out2) )\
-             + (- Cf_out + Cf_out * np.exp(-tau_out3) )\
-             + (- Cf_out + Cf_out * np.exp(-tau_out4) ) ) 
-    
-    # The full systemic component
-    F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys1))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys2))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys3))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys4)))   
-    
-    # The full emission component
-    F_ems = 1. + (A * np.exp(-8.*np.log(2.) * ( (v - vems0) / b_D_ems )**2.)\
-                 + c_ems1 * A * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems)**2.)\
-                 + c_ems2 * A * np.exp(-8.*np.log(2.) * ( (v - vems2) / b_D_ems)**2.)\
-                 + c_ems3 * A * np.exp(-8.*np.log(2.) * ( (v - vems3) / b_D_ems)**2.)\
-                 + c_ems4 * A * np.exp(-8.*np.log(2.) * ( (v - vems4) / b_D_ems)**2.) )
-    
-    spec_res, v_res = u.spectral_res( 2586.650 * (1. + z_r) )  # wavelength resolution, and velocity resolution for muse at the observed wavelength of Fe II 2586
-    muse_kernel = ((spec_res/1.25)/2.355)
-    g = Gaussian1DKernel(stddev=muse_kernel)
-    # The full unconvolved model
-    F = F_out * F_sys * F_ems
-    # The full convolved model
-    F_conv = convolve(F, g, boundary='extend')
-    return F_conv
-
-
-########################## Fe II Full model & individual conmponents ############################################
-def model_FeII_comps(v, vout0, vems, b_D, b_D_sys, b_D_ems, logN, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
-    """
-    The output of this function is the full convolved profile for the Fe II plus the individual components:
-    F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_out2, F_out3, F_out4, F_ems0, F_ems1, F_ems2, F_ems3, F_ems4
-    
-    v: is the input velocity array of the spectrum with respect to Fe II 2586. use veldiff() to transform from rest-frame wavelength into velocity
-    
-    The free parameters for this model are:
-    1- vout0: is the velocity of the centroid of tau of the Fe II outflowing component
-    2- vems: is the centroid velocity for the Fe II emission component
-    3- b_D: Doppler velocity width for tau the outflowing component
-    4- b_D_sys: Doppler velocity width for tau of the systemic component
-    5- b_D_ems: Doppler velocity width for the emisssion component
-    6- logN: Column density of the Fe II outflowing component
-    7- logN_sys: Column density of the Fe II systemic component
-    8- A: is the normalized flux amplitude for the emission line 2612
-    9- c_ems1: is the line ratio between Fe II emission lines 2626/2612
-    10- c_ems2: is the line ratio between Fe II emission lines 2632/2612
-    11- c_ems3: is the line ratio between Fe II emission lines 2365/2612
-    12- c_ems4: is the line ratio between Fe II emission lines 2396/2612
-    
-    You can try to use the covering fractions as free parameters:
-    Cf_sys: is the covering fraction for the systemic component
-    Cf_out: is the covering fraction for the outflowing component
-    
-    Both of them are constant and equal to 1 in this version of the model: Cf_sys = Cf_out = 1.0
-    
-    """
-
-    Cf_sys = 1.0
-    Cf_out = 1.0
-    z_r = 1.7039397365102  # The global redshift value for the galaxy, It is used to get the observed wavelength for Fe II lines, that will be used to get the muse resolution corresponding to this wavelength before convolving the model
-    N = 10.**logN
-    N_sys = 10.**logN_sys
-    
-    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
-    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764]
-    f0 =          [0.069125,   0.2394,   0.1142,   0.0313, 0.320]
-
-    '''
-    Absorption lines: 2344.212, 2374.460, 2382.764, 2586.650, 2600.173
-    Emission lines: 2365.552, 2396.355, 2612.654, 2626.451, 2632.1081
-    '''
-    # Absorption Lines Velocities with respect to the Fe II absorption line 2586 
-    dv_abs1 = u.veldiff(lam_cen_abs[1],lam_cen_abs[0]); vout1 = vout0 + dv_abs1           # Velocity difference between the absorption lines 2600 and 2586
-    dv_abs2 = u.veldiff(lam_cen_abs[2],lam_cen_abs[0]); vout2 = vout0 + dv_abs2           # Velocity difference between the absorption lines 2344 and 2586
-    dv_abs3 = u.veldiff(lam_cen_abs[3],lam_cen_abs[0]); vout3 = vout0 + dv_abs3           # Velocity difference between the absorption lines 2374 and 2586
-    dv_abs4 = u.veldiff(lam_cen_abs[4],lam_cen_abs[0]); vout4 = vout0 + dv_abs4           # Velocity difference between the absorption lines 2382 and 2586
-    # Emission Lines Velocities with respect to the Fe II absorption line 2586
-    dv_ems0 = u.veldiff(lam_cen_ems[0],lam_cen_abs[0]);  vems0 = vems + dv_ems0           # Velocity difference between the emission line 2612 and absorption line 2586 
-    dv_ems1 = u.veldiff(lam_cen_ems[1],lam_cen_abs[0]);  vems1 = vems + dv_ems1           # Velocity difference between the emission line 2626 and absorption line 2586 
-    dv_ems2 = u.veldiff(lam_cen_ems[2],lam_cen_abs[0]);  vems2 = vems + dv_ems2           # Velocity difference between the emission line 2632 and absorption line 2586 
-    dv_ems3 = u.veldiff(lam_cen_ems[3],lam_cen_abs[0]);  vems3 = vems + dv_ems3           # Velocity difference between the emission line 2365 and absorption line 2586 
-    dv_ems4 = u.veldiff(lam_cen_ems[4],lam_cen_abs[0]);  vems4 = vems + dv_ems4           # Velocity difference between the emission line 2396 and absorption line 2586 
-
-    # Tau for the outflowing component for each absorption line
-    tau_out0 = (1.497e-15 * lam_cen_abs[0] * f0[0]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout0) / b_D )**2. ) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) # tau for the Outflow at 2586
-    tau_out1 = (1.497e-15 * lam_cen_abs[1] * f0[1]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout1) / b_D )**2. ) * np.piecewise(v,[v< dv_abs1, v>= dv_abs1], [1., 0.]) # tau for the Outflow at 2600 
-    tau_out2 = (1.497e-15 * lam_cen_abs[2] * f0[2]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout2) / b_D )**2. ) * np.piecewise(v,[v< dv_abs2, v>= dv_abs2], [1., 0.]) # tau for the Outflow at 2344
-    tau_out3 = (1.497e-15 * lam_cen_abs[3] * f0[3]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout3) / b_D )**2. ) * np.piecewise(v,[v< dv_abs3, v>= dv_abs3], [1., 0.]) # tau for the Outflow at 2374
-    tau_out4 = (1.497e-15 * lam_cen_abs[4] * f0[4]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout4) / b_D )**2. ) * np.piecewise(v,[v< dv_abs4, v>= dv_abs4], [1., 0.]) # tau for the Outflow at 2382
-    
-    # Tau for the systemic component for each absorption line
-    
-    tau_sys0 = (1.497e-15 * lam_cen_abs[0] * f0[0]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v) / b_D_sys )**2. )           # tau for the Systemic at 2586
-    tau_sys1 = (1.497e-15 * lam_cen_abs[1] * f0[1]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs1) / b_D_sys )**2. ) # tau for the Systemic at 2600
-    tau_sys2 = (1.497e-15 * lam_cen_abs[2] * f0[2]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs2) / b_D_sys )**2. ) # tau for the Systemic at 2344
-    tau_sys3 = (1.497e-15 * lam_cen_abs[3] * f0[3]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs3) / b_D_sys )**2. ) # tau for the Systemic at 2374
-    tau_sys4 = (1.497e-15 * lam_cen_abs[4] * f0[4]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv_abs4) / b_D_sys )**2. ) # tau for the Systemic at 2382
-    
-    # The Full outflowing component 
-    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out1) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out2) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out3) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out4) ) ) 
-    
-    # The individual outflowing components
-    F_out0 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )  )
-    F_out1 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
-    F_out2 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out2) )  )
-    F_out3 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out3) )  )
-    F_out4 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out4) )  )
-    
-    # The full systemic component
-    F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys1))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys2))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys3))\
-             + (- Cf_sys + Cf_sys * np.exp(-tau_sys4)))   
-
-    
-    # The full emission component    
-    F_ems = 1. + (A * np.exp(-8.*np.log(2.) * ( (v - vems0) / b_D_ems )**2.)\
-                 + c_ems1 * A * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems)**2.)\
-                 + c_ems2 * A * np.exp(-8.*np.log(2.) * ( (v - vems2) / b_D_ems)**2.)\
-                 + c_ems3 * A * np.exp(-8.*np.log(2.) * ( (v - vems3) / b_D_ems)**2.)\
-                 + c_ems4 * A * np.exp(-8.*np.log(2.) * ( (v - vems4) / b_D_ems)**2.) )
-    
-    # The individual emission components
-    F_ems0 = 1. + A * np.exp(-8.*np.log(2.) * ( (v - vems0) / b_D_ems )**2.) 
-    F_ems1 = 1. + c_ems1 * A * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems)**2.)
-    F_ems2 = 1. + c_ems2 * A * np.exp(-8.*np.log(2.) * ( (v - vems2) / b_D_ems)**2.)
-    F_ems3 = 1. + c_ems3 * A * np.exp(-8.*np.log(2.) * ( (v - vems3) / b_D_ems)**2.)
-    F_ems4 = 1. + c_ems4 * A * np.exp(-8.*np.log(2.) * ( (v - vems4) / b_D_ems)**2.)
-    
-    spec_res, v_res = u.spectral_res( 2586.650 * (1. + z_r) )   # wavelength resolution, and velocity resolution for muse at the observed wavelength of Fe II 2586
-    muse_kernel = ((spec_res/1.25)/2.355)
-    g = Gaussian1DKernel(stddev=muse_kernel)
-    # The full unconvolved model
-    F = F_out * F_sys * F_ems
-    # The full convolved model
-    F_conv = convolve(F, g, boundary='extend')
-    return F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_out2, F_out3, F_out4, F_ems0, F_ems1, F_ems2, F_ems3, F_ems4
-
-
-
-####################### Mg II Full Model ######################################################
-def model_MgII_full(v, vout0, vems1, vems2, b_D, b_D_sys, b_D_ems1, b_D_ems2, logN, logN_sys, A_1, A_2, c_ems1, c_ems2):
-    """
-    The output of this function is the full convolved Mg II model: F_conv
-    - v: is the input velocity array of the spectrum withe respect to the Mg II 2796 line
-    
-    The Free parameters for the model are:
-    1- vout0: centroid velocity of tau of the Mg II outflowing component
-    2- vems1: emission velocity for Mg II 1st emission component
-    3- vems2: emission velocity for Mg II 2nd emission component
-    4- b_D: is the Doppler velocity width for the outflowing component
-    5- b_D_sys: is the Doppler velocity width for the systemic component
-    6- b_D_ems1: is the Doppler velocity width for the 1st emission component
-    7- b_D_ems2: is the Doppler velocity width for the 2nd emission component
-    8- logN: Column density of the outflowing component
-    9- logN_sys: Column density of the systemic component
-    10- A_1:      is the normalized Flux amplitude of the Mg II 2796 in the 1st emission component
-    11- A_2:      is the normalized Flux amplitude of the Mg II 2796 in the 2nd emission component
-    12- c_ems1: is the line ratio between Mg II emission lines 2803/2796 for the first emission component
-    13- c_ems2: is the line ratio between Mg II emission lines 2803/2796 for the second emission component
-    """
-    Cf_sys = 1.0
-    Cf_out = 1.0
-    
-    z_r = 1.7039397365102
-    N = 10.**logN
-    N_sys = 10.**logN_sys
-    
-    lam_cen = [2796.351, 2803.528]
-    f0 =      [0.6155, 0.3058]
-    
-    dv = u.veldiff(lam_cen[1], lam_cen[0])  # Velocity difference between the Mg II lines 2803 and 2796
-    vout1 = vout0 + dv
-
-    # Tau for the outflowing component for each absorption line
-    tau_out0 = (1.497e-15 * lam_cen[0] * f0[0]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout0) / b_D )**2. ) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.]) # tau for the Outflow at 2796
-    tau_out1 = (1.497e-15 * lam_cen[1] * f0[1]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout1) / b_D )**2. ) * np.piecewise(v,[v< dv, v>= dv], [1., 0.]) # tau for the Outflow at 2803
-    
-    # Tau for the systemic component for each absorption line
-    tau_sys0 = (1.497e-15 * lam_cen[0] * f0[0]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v) / b_D_sys )**2. )           # tau for the Systemic at 2796
-    tau_sys1 = (1.497e-15 * lam_cen[1] * f0[1]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv) / b_D_sys )**2. ) # tau for the Systemic at 2803
-    
-    # The full outflowing component
-    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
-    
-    # The full systemic component
-    F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
-    
-    
-    
-    vems11 = vems1 + dv
-    vems22 = vems2 + dv
-    
-    # The full emission component
-    F_ems = 1. + (A_1 * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems1 )**2.)\
-                  + c_ems1 * A_1 * np.exp(-8.*np.log(2.) * ( (v - vems11) / b_D_ems1)**2.)\
-                  + A_2 * np.exp(-8. * np.log(2.) * ( (v - vems2) / b_D_ems2 )**2.)\
-                  + c_ems2 * A_2 * np.exp(-8.*np.log(2.) * ( (v - vems22) / b_D_ems2)**2.))
-    
-    
-    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )   # wavelength resolution, and velocity resolution for muse at the observed wavelength of Mg II 2796
-    muse_kernel = ((spec_res/1.25)/2.355)
-    g = Gaussian1DKernel(stddev=muse_kernel)
-    # The full unconvolved model
-    F = F_out * F_sys * F_ems
-    # The full convolved model
-    F_conv = convolve(F, g, boundary='extend')
-    return F_conv
-
-
-
-########################## Mg II Full model and individual components ##################################################
-def model_MgII_comps(v, vout0, vems1, vems2, b_D, b_D_sys, b_D_ems1, b_D_ems2, logN, logN_sys, A_1, A_2, c_ems1, c_ems2):
-    """
-    The output of this function is the full convolved Mg II model and individual components: 
-    F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_ems1, F_ems2, F_ems11, F_ems12, F_ems21, F_ems22
-    
-    - v: is the input velocity array of the spectrum withe respect to the Mg II 2796 line
-    
-    The Free parameters for the model are:
-    1- vout0: centroid velocity of tau of the Mg II outflowing component
-    2- vems1: emission velocity for Mg II 1st emission component
-    3- vems2: emission velocity for Mg II 2nd emission component
-    4- b_D: is the Doppler velocity width for the outflowing component
-    5- b_D_sys: is the Doppler velocity width for the systemic component
-    6- b_D_ems1: is the Doppler velocity width for the 1st emission component
-    7- b_D_ems2: is the Doppler velocity width for the 2nd emission component
-    8- logN: Column density of the outflowing component
-    9- logN_sys: Column density of the systemic component
-    10- A_1:      is the normalized Flux amplitude of the Mg II 2796 in the 1st emission component
-    11- A_2:      is the normalized Flux amplitude of the Mg II 2796 in the 2nd emission component
-    12- c_ems1: is the line ratio between Mg II emission lines 2803/2796 for the first emission component
-    13- c_ems2: is the line ratio between Mg II emission lines 2803/2796 for the second emission component
-    """
-    
-    Cf_sys = 1.0
-    Cf_out = 1.0
-    
-    z_r = 1.7039397365102
-    N = 10.**logN
-    N_sys = 10.**logN_sys
-    
-    lam_cen = [2796.351, 2803.528]
-
-    dv = u.veldiff(lam_cen[1], lam_cen[0])
-    vout1 = vout0 + dv
-
-    
-    tau_out0 = (1.497e-15 * lam_cen[0] * f0[0]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout0) / b_D )**2. ) * np.piecewise(v,[v< 0.0, v>= 0.0], [1., 0.])  # tau for the Outflow at 2796
-    tau_out1 = (1.497e-15 * lam_cen[1] * f0[1]) * (N/ b_D) * np.exp(-8.*np.log(2.) * ( (v -vout1) / b_D )**2. ) * np.piecewise(v,[v< dv, v>= dv], [1., 0.]) # tau for the Outflow at 2803
-    
-    
-    tau_sys0 = (1.497e-15 * lam_cen[0] * f0[0]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v) / b_D_sys )**2. )           # tau for the Systemic at 2796
-    tau_sys1 = (1.497e-15 * lam_cen[1] * f0[1]) * (N_sys/ b_D_sys) * np.exp(-8.*np.log(2.) * ( (v - dv) / b_D_sys )**2. ) # tau for the Systemic at 2803
-    
-    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
-             + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
-    
-    F_out0 = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) 
-    F_out1 = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) ) 
-    
-    
-    
-    F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
-
-    vems11 = vems1 + dv
-    vems22 = vems2 + dv
-    # The full emission component
-    F_ems = 1. + (A_1 * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems1 )**2.)\
-                  + c_ems1 * A_1 * np.exp(-8.*np.log(2.) * ( (v - vems11) / b_D_ems1)**2.)\
-                  + A_2 * np.exp(-8. * np.log(2.) * ( (v - vems2) / b_D_ems2 )**2.)\
-                  + c_ems2 * A_2 * np.exp(-8.*np.log(2.) * ( (v - vems22) / b_D_ems2)**2.))
-    # The primary emission set
-    F_ems1 = 1. + (A_1 * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems1 )**2.)\
-                   + c_ems1 * A_1 * np.exp(-8.*np.log(2.) * ( (v - vems11) / b_D_ems1)**2.) )
-    # The secondary emission set
-    F_ems2 = 1. + (A_2 * np.exp(-8. * np.log(2.) * ( (v - vems2) / b_D_ems2 )**2.)\
-                   + c_ems2 * A_2 * np.exp(-8.*np.log(2.) * ( (v - vems22) / b_D_ems2)**2.))
-    
-    # Individual emission components for the primary emission set
-    F_ems11 = 1. + A_1 * np.exp(-8.*np.log(2.) * ( (v - vems1) / b_D_ems1 )**2.)
-    F_ems12 = 1. + c_ems1 * A_1 * np.exp(-8.*np.log(2.) * ( (v - vems11) / b_D_ems1)**2.)
-    # Individual emission components for the secondary emission set
-    F_ems21 = 1. + A_2 * np.exp(-8. * np.log(2.) * ( (v - vems2) / b_D_ems2 )**2.)
-    F_ems22 = 1. + c_ems2 * A_2 * np.exp(-8.*np.log(2.) * ( (v - vems22) / b_D_ems2)**2.)
-    
-    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) ) # wavelength resolution, and velocity resolution for muse at the observed wavelength of Mg II 2796
-    muse_kernel = ((spec_res/1.25)/2.355)
-    g = Gaussian1DKernel(stddev=muse_kernel)
-    # The full unconvolved model
-    F = F_out * F_sys * F_ems   
-    # The full convolved model         
-    F_conv = convolve(F, g, boundary='extend')
-    return F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_ems1, F_ems2, F_ems11, F_ems12, F_ems21, F_ems22
-
-
-
-
+from copy import deepcopy
 
 
 ###################################################################################
@@ -865,3 +481,1055 @@ def model_CIII_comps(wave,z,tau,sigma):
     fmodel = convolve(F, g, boundary='extend')
     return fmodel, F1, F2
 
+
+
+##########################################################################################
+"""New Modeling from Rubin et al 2014"""
+#########################################################################################
+def tau_lambda_fn(wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys):
+    """
+    Given inputs:
+    wrest: rest-frame wavelength array
+    lam_cen: central rest-frame wavelength of the transition
+    f0: oscillator strength of the transition
+
+    Free parameters:
+    lam_out: the central wavelength of the gaussian descrbing the optical depth of the outflow component
+    N_out: Column density of the outflowing component
+    N_sys: Column density of the systemic component
+    b_D_out: Doppler velocity width for the outflowing component
+    b_D_sys: Doppler velocity width for the systemic component
+
+    Outputs:
+    tau_out: optical depth of the outflowing component
+    tau_sys: optical depth of the systemic component
+    """
+    c = 299792.458  # Speed of light in km/s
+
+    tau_out = (1.497e-15 * lam_cen * f0) * (N_out/ b_D_out) * np.exp(- ( (wrest - lam_out) / (lam_out* (b_D_out/c) ) )**2. ) * np.piecewise(wrest,[wrest < lam_cen, wrest >= lam_cen], [1., 0.]) # tau for the Outflow at 2586
+    tau_sys = (1.497e-15 * lam_cen * f0) * (N_sys/ b_D_sys) * np.exp(- ( (wrest - lam_cen) / (lam_cen* (b_D_sys/c) ) )**2. )           # tau for the Systemic at 2586
+    return tau_out, tau_sys
+
+
+def model_FeII_wave_cf_sum_tau(wrest, lam_out, lam_ems, Cf_out, Cf_sys, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
+    #Cf_sys = 1.0
+    #Cf_out = 1.0
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313, 0.320]
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4) )
+
+
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4) )
+
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+
+    spec_res, v_res = u.spectral_res( 2586.650 * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+
+    return F_conv
+
+def model_FeII_wave_cf_sum_tau_comps(wrest, lam_out, lam_ems, Cf_out, Cf_sys, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
+    #Cf_sys = 1.0
+    #Cf_out = 1.0
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313, 0.320]
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+
+
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4) )
+
+    F_out0 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )  )
+    F_out1 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+    F_out2 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out2) )  )
+    F_out3 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out3) )  )
+    F_out4 = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out4) )  )
+
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4) )
+
+
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+
+    F_ems0 = 1. + A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)
+    F_ems1 = 1. + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)
+    F_ems2 = 1. + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)
+    F_ems3 = 1. + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)
+    F_ems4 = 1. + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.)
+
+    spec_res, v_res = u.spectral_res( 2586.650 * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+
+    return F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_out2, F_out3, F_out4, F_ems0, F_ems1, F_ems2, F_ems3, F_ems4
+
+
+
+########################### Mg II Models ############################################################
+def model_MgII_wave_Cf(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out, Cf_sys,logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    #Cf_sys = 1.0
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+    #F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
+    #         + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+
+    #F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+    # The Free parameters for the Emission Component are:
+    # A_1:       is the normalized Flux amplitude of the Mg II 2796 in the 1st emission component
+    # A_2:      is the normalized Flux amplitude for the Mg II 2796 in the 2nd emission component
+    # vems1:    is the emission velocity for Mg II 2nd emission component
+    # vems2:    is the emission velocity for Mg II 2nd emission component
+    # b_D_ems1: is the Doppler velocity width for the first emission component
+    # b_D_ems2: is the Doppler velocity width for the second emission component
+    # c_ems1: is the line ratio between Mg II emission lines 2803/2796 for the first emission component
+    # c_ems2: is the line ratio between Mg II emission lines 2803/2796 for the second emission component
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+
+    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+    return F_conv
+
+
+def model_MgII_wave_Cf_comps(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out, Cf_sys, logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    #Cf_sys = 1.0
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+    #F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
+    #         + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+    F_out0 = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )
+    F_out1 = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )
+
+    #F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+    # The Free parameters for the Emission Component are:
+    # A_1:       is the normalized Flux amplitude of the Mg II 2796 in the 1st emission component
+    # A_2:      is the normalized Flux amplitude for the Mg II 2796 in the 2nd emission component
+    # vems1:    is the emission velocity for Mg II 2nd emission component
+    # vems2:    is the emission velocity for Mg II 2nd emission component
+    # b_D_ems1: is the Doppler velocity width for the first emission component
+    # b_D_ems2: is the Doppler velocity width for the second emission component
+    # c_ems1: is the line ratio between Mg II emission lines 2803/2796 for the first emission component
+    # c_ems2: is the line ratio between Mg II emission lines 2803/2796 for the second emission component
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    F_ems1 = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. ) )
+
+    F_ems2 = 1. + (A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                    + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    F_ems11 = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. ) )
+    F_ems12 = 1. + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )
+    F_ems21 = 1. + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)
+    F_ems22 = 1. + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.)
+
+
+    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+    return F_conv, F, F_out, F_sys, F_ems, F_out0, F_out1, F_ems1, F_ems2, F_ems11, F_ems12, F_ems21, F_ems22
+
+
+
+###################################################################################################################
+""" Same as those from Rubin et al. 2014 but we keep Cf_sys = 1"""
+####################################################################################################################
+def model_FeII_wave_full(wrest, lam_out, lam_ems, Cf_out, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
+    """
+    Input:
+    wrest: restframe wavelength array.
+
+    Parameters of the model:
+    lam_out: central wavelength of the outflow component.
+    lam_ems: central wavelength of the emission component.
+    Cf_out: The covering fraction of the outflow component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems: Doppler velocity parameter for the emission component.
+    logN_out: log10 of the column density of the outflow component.
+    logN_sys: log10 of the column density of the systemic component.
+    A: Flux amplitude of the emission compnent.
+    c_ems1: is the line ratio between the Fe II emission lines 2626 and 2612.
+    c_ems2: is the line ratio between the Fe II emission lines 2632 and 2612.
+    c_ems3: is the line ratio between the Fe II emission lines 2365 and 2612.
+    c_ems4: is the line ratio between the Fe II emission lines 2396 and 2612.
+
+    Output:
+    F_conv: the full convolved final profile.
+    """
+
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    z_r = 1.703974047833502 # redshift of the galaxy from the stacked spectrum.
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764, 2249.8768, 2260.7805]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313,    0.320, 0.001821, 0.00244]
+
+    vel = u.veldiff(wrest, lam_cen_abs[0])
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+    dlam_abs5 = lam_cen_abs[5] - lam_cen_abs[0]
+    dlam_abs6 = lam_cen_abs[6] - lam_cen_abs[0]
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out5, tau_sys5 = tau_lambda_fn(wrest, lam_cen_abs[5], f0[5], lam_out + dlam_abs5, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out6, tau_sys6 = tau_lambda_fn(wrest, lam_cen_abs[6], f0[6], lam_out + dlam_abs6, N_out, N_sys, b_D_out, b_D_sys)
+
+
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4 + tau_out5 + tau_out6) )
+
+
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4 + tau_out5 + tau_out6) )
+
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+
+
+    spec_res1, v_res1 = u.spectral_res( lam_cen_abs[-1] * (1. + z_r) )
+    spec_res2, v_res2 = u.spectral_res( lam_cen_abs[3] * (1. + z_r) )
+    spec_res3, v_res3 = u.spectral_res( lam_cen_abs[1] * (1. + z_r) )
+
+    F = F_out * F_sys * F_ems
+
+    q1 = np.where( vel > u.veldiff(2270., lam_cen_abs[0]))
+    q2 = np.where( (vel < u.veldiff(2330., lam_cen_abs[0])) | (vel > u.veldiff(2400., lam_cen_abs[0])) )
+    q3 = np.where(vel < u.veldiff(2575., lam_cen_abs[0]))
+
+    F_1 = deepcopy(F);  F_2 = deepcopy(F); F_3 = deepcopy(F)
+    F_1[q1] = 1.0; F_2[q2] = 1.0; F_3[q3] = 1.0
+    # convolving the model
+    muse_kernel1 = ((spec_res1/1.25) / 2.355);
+    g1 = Gaussian1DKernel(stddev=muse_kernel1);
+    F_conv1 = convolve(F_1, g1, boundary='extend');
+
+    muse_kernel2 = ((spec_res2/1.25) / 2.355)
+    g2 = Gaussian1DKernel(stddev=muse_kernel2)
+    F_conv2 = convolve(F_2, g2, boundary='extend')
+
+    muse_kernel3 = ((spec_res3/1.25) / 2.355)
+    g3 = Gaussian1DKernel(stddev=muse_kernel3)
+    F_conv3 = convolve(F_3, g3, boundary='extend')
+
+
+    F_conv = F_conv1 * F_conv2 * F_conv3
+
+    return F_conv
+
+
+
+
+def model_FeII_wave_full_comps(wrest, lam_out, lam_ems, Cf_out, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems2, c_ems3, c_ems4):
+    """
+    Input:
+    wrest: restframe wavelength array.
+
+    Parameters of the model:
+    lam_out: central wavelength of the outflow component.
+    lam_ems: central wavelength of the emission component.
+    Cf_out: The covering fraction of the outflow component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems: Doppler velocity parameter for the emission component.
+    logN_out: log10 of the column density of the outflow component.
+    logN_sys: log10 of the column density of the systemic component.
+    A: Flux amplitude of the emission compnent.
+    c_ems1: is the line ratio between the Fe II emission lines 2626 and 2612.
+    c_ems2: is the line ratio between the Fe II emission lines 2632 and 2612.
+    c_ems3: is the line ratio between the Fe II emission lines 2365 and 2612.
+    c_ems4: is the line ratio between the Fe II emission lines 2396 and 2612.
+
+    Output:
+    The output is a dictionaray that contains the flux profiles:
+    output['F_conv']: Final convolved flux profile.
+    output['F_unconv']: Final unconvolved flux profile.
+    output['F_out']: Full profile for the outflow component.
+    output['F_ems']: Full profile for the emission component.
+    output['F_sys']: Full profile for the systemic component.
+
+    For the indvidual lines profiles:
+    Use the integer central wave lengthes without rounding in lam_cen_abs for the outflow: e.g. output['F+lam_cen_abs[i]+_out']
+    Use the integer central wave lengthes without rounding in lam_cen_abs for the outflow: e.g. output['F+lam_cen_ems[i]+_out']
+    """
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    z_r = 1.703974047833502 #1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+
+
+    output = {}
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764, 2249.8768, 2260.7805]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313,    0.320, 0.001821, 0.00244]
+
+    vel = u.veldiff(wrest, lam_cen_abs[0])
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+    dlam_abs5 = lam_cen_abs[5] - lam_cen_abs[0]
+    dlam_abs6 = lam_cen_abs[6] - lam_cen_abs[0]
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out5, tau_sys5 = tau_lambda_fn(wrest, lam_cen_abs[5], f0[5], lam_out + dlam_abs5, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out6, tau_sys6 = tau_lambda_fn(wrest, lam_cen_abs[6], f0[6], lam_out + dlam_abs6, N_out, N_sys, b_D_out, b_D_sys)
+
+
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4 + tau_out5 + tau_out6) )
+    output['F2586_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )  )
+    output['F2600_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+    output['F2344_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out2) )  )
+    output['F2374_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out3) )  )
+    output['F2382_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out4) )  )
+    output['F2249_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out5) )  )
+    output['F2260_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out6) )  )
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4 + tau_out5 + tau_out6) )
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+
+    output['F2612_ems'] = 1. + A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)
+    output['F2626_ems'] = 1. + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)
+    output['F2632_ems'] = 1. + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)
+    output['F2365_ems'] = 1. + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)
+    output['F2396_ems'] = 1. + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.)
+
+    output['F_out'] = F_out; output['F_ems'] = F_ems; output['F_sys'] = F_sys;
+
+    spec_res1, v_res1 = u.spectral_res( lam_cen_abs[-1] * (1. + z_r) )
+    spec_res2, v_res2 = u.spectral_res( lam_cen_abs[3] * (1. + z_r) )
+    spec_res3, v_res3 = u.spectral_res( lam_cen_abs[1] * (1. + z_r) )
+
+    F = F_out * F_sys * F_ems
+    output['F_unconv'] = F
+
+    q1 = np.where( vel > u.veldiff(2270., lam_cen_abs[0]))
+    q2 = np.where( (vel < u.veldiff(2330., lam_cen_abs[0])) | (vel > u.veldiff(2400., lam_cen_abs[0])) )
+    q3 = np.where(vel < u.veldiff(2575., lam_cen_abs[0]))
+
+    F_1 = deepcopy(F);  F_2 = deepcopy(F); F_3 = deepcopy(F)
+    F_1[q1] = 1.0; F_2[q2] = 1.0; F_3[q3] = 1.0
+
+    # convolving the model
+    muse_kernel1 = ((spec_res1/1.25) / 2.355);
+    g1 = Gaussian1DKernel(stddev=muse_kernel1);
+    F_conv1 = convolve(F_1, g1, boundary='extend');
+
+    muse_kernel2 = ((spec_res2/1.25) / 2.355)
+    g2 = Gaussian1DKernel(stddev=muse_kernel2)
+    F_conv2 = convolve(F_2, g2, boundary='extend')
+
+    muse_kernel3 = ((spec_res3/1.25) / 2.355)
+    g3 = Gaussian1DKernel(stddev=muse_kernel3)
+    F_conv3 = convolve(F_3, g3, boundary='extend')
+
+
+    F_conv = F_conv1 * F_conv2 * F_conv3
+    output['F_conv'] = F_conv
+
+
+    return output
+
+
+
+#####################################################################################################################
+#         The Fe II model for the data from MAGE
+#####################################################################################################################
+
+def model_FeII_wave_MagE(wrest, lam_out, lam_ems, Cf_out, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems3, c_ems4):
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764, 2249.877, 2260.781]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313,    0.320, 0.001821, 0.00244]
+
+    vel = u.veldiff(wrest, lam_cen_abs[0])
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+    dlam_abs5 = lam_cen_abs[5] - lam_cen_abs[0]
+    dlam_abs6 = lam_cen_abs[6] - lam_cen_abs[0]
+
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out5, tau_sys5 = tau_lambda_fn(wrest, lam_cen_abs[5], f0[5], lam_out + dlam_abs5, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out6, tau_sys6 = tau_lambda_fn(wrest, lam_cen_abs[6], f0[6], lam_out + dlam_abs6, N_out, N_sys, b_D_out, b_D_sys)
+
+
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4 + tau_out5 + tau_out6) )
+
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4 + tau_sys5 + tau_sys6) )
+
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    #dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    #lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+    #+ c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+
+    v_res = 108. # km/s
+    mage_kernel = ((v_res/ (vel[2]-vel[1]) )/2.355)
+    g = Gaussian1DKernel(stddev=mage_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+
+    return F_conv
+
+def model_FeII_wave_MagE_comps(wrest, lam_out, lam_ems, Cf_out, b_D_out, b_D_sys, b_D_ems, logN_out, logN_sys, A, c_ems1, c_ems3, c_ems4):
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+    c = 299792.458  # Speed of light in km/s
+
+    lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+    lam_cen_abs = [2586.650, 2600.173, 2344.213, 2374.460, 2382.764, 2249.877, 2260.781]
+    f0 =          [0.069125,   0.2394,   0.1142,   0.0313,    0.320, 0.001821, 0.00244]
+
+    vel = u.veldiff(wrest, lam_cen_abs[0])
+
+    dlam_abs1 = lam_cen_abs[1] - lam_cen_abs[0]
+    dlam_abs2 = lam_cen_abs[2] - lam_cen_abs[0]
+    dlam_abs3 = lam_cen_abs[3] - lam_cen_abs[0]
+    dlam_abs4 = lam_cen_abs[4] - lam_cen_abs[0]
+    dlam_abs5 = lam_cen_abs[5] - lam_cen_abs[0]
+    dlam_abs6 = lam_cen_abs[6] - lam_cen_abs[0]
+
+
+    # (wrest, lam_cen, f0, lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen_abs[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen_abs[1], f0[1], lam_out + dlam_abs1, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out2, tau_sys2 = tau_lambda_fn(wrest, lam_cen_abs[2], f0[2], lam_out + dlam_abs2, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out3, tau_sys3 = tau_lambda_fn(wrest, lam_cen_abs[3], f0[3], lam_out + dlam_abs3, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out4, tau_sys4 = tau_lambda_fn(wrest, lam_cen_abs[4], f0[4], lam_out + dlam_abs4, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out5, tau_sys5 = tau_lambda_fn(wrest, lam_cen_abs[5], f0[5], lam_out + dlam_abs5, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out6, tau_sys6 = tau_lambda_fn(wrest, lam_cen_abs[6], f0[6], lam_out + dlam_abs6, N_out, N_sys, b_D_out, b_D_sys)
+
+    output = {}
+
+    F_out = 1.0 - Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1 + tau_out2 + tau_out3 + tau_out4 + tau_out5 + tau_out6) )
+    output['F_out'] = F_out
+
+    output['F2586_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )  )
+    output['F2600_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+    output['F2344_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out2) )  )
+    output['F2374_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out3) )  )
+    output['F2382_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out4) )  )
+    output['F2249_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out5) )  )
+    output['F2260_out'] = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out6) )  )
+
+
+    F_sys = 1.0 - Cf_sys + Cf_sys * np.exp(-(tau_sys0 + tau_sys1 + tau_sys2 + tau_sys3 + tau_sys4 + tau_sys5 + tau_sys6) )
+    output['F_sys'] = F_sys
+
+
+    dlam_ems0 = lam_cen_ems[0] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2612 and absorption 2586
+    dlam_ems1 = lam_cen_ems[1] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2626 and absorption 2586
+    #dlam_ems2 = lam_cen_ems[2] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2632 and absorption 2586
+    dlam_ems3 = lam_cen_ems[3] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2365 and absorption 2586
+    dlam_ems4 = lam_cen_ems[4] - lam_cen_abs[0]   # The wavelength difference between Fe II emission 2396 and absorption 2586
+
+    lam_ems0 = lam_ems + dlam_ems0
+    lam_ems1 = lam_ems + dlam_ems1
+    #lam_ems2 = lam_ems + dlam_ems2
+    lam_ems3 = lam_ems + dlam_ems3
+    lam_ems4 = lam_ems + dlam_ems4
+
+    #     lam_cen_ems = [2612.654, 2626.451, 2632.1081, 2365.552, 2396.355]
+
+    F_ems = 1. + (A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)\
+                 + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)\
+                 + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)\
+                 + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.) )
+    #+ c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)\
+    output['F_ems'] = F_ems
+
+    output['F2612_ems'] = 1. + A * np.exp(- ( (wrest - lam_ems0 ) / (lam_ems0* (b_D_ems/c)) )**2.)
+    output['F2626_ems'] = 1. + c_ems1 * A * np.exp(- ( (wrest - lam_ems1) / (lam_ems1 * (b_D_ems/c)) )**2.)
+    #F_ems2 = 1. + c_ems2 * A * np.exp(- ( (wrest - lam_ems2) / (lam_ems2 * (b_D_ems/c)) )**2.)
+    output['F2365_ems'] = 1. + c_ems3 * A * np.exp(- ( (wrest - lam_ems3) / (lam_ems3 * (b_D_ems/c)) )**2.)
+    output['F2396_ems'] = 1. + c_ems4 * A * np.exp(- ( (wrest - lam_ems4) / (lam_ems4 * (b_D_ems/c)) )**2.)
+
+    v_res = 108. # km/s
+    mage_kernel = ((v_res/ (vel[2]-vel[1]) )/2.355)
+    g = Gaussian1DKernel(stddev=mage_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+    output['F_unconv'] = F; output['F_conv'] = F_conv
+
+    return output
+
+#########################################################################################################################
+#     Mg II models
+#########################################################################################################################
+def model_MgII_wave_full(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out,logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    """
+    Input:
+    wrest: restframe wavelength.
+
+    The Free parameters for model are:
+    lam_out: central wavelength of the outflow component.
+    lam_ems1: central wavelength of the first emission component.
+    lam_ems2: central wavelength of the second emission component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems1: Doppler velocity parameter for the 1st emission component.
+    b_D_ems2: Doppler velocity parameter for the 2nd emission component.
+    Cf_out: Covering fraction for the outflow component.
+    logN_out: log10 of the column density of Mg II for the outflow component.
+    logN_sys: log10 of the column density of Mg II for the outflow component.
+    A_1: Normalized flux amplitude for the 1st emission component.
+    A_2: Normalized flux amplitude for the 2nd emission component.
+    c_ems1: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+    c_ems2: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+
+
+    Output:
+    The output is a dictionary that contains the output compnents for the model using the keywords:
+    F_out: The full outflow component for the Mg II absorption lines.
+    F2796_out: The outflow component for the Mg II 2796 absorption line.
+    F2803_out: The outflow component for the Mg II 2803 absorption line.
+    F_sys: The full systemic component for the Mg II absprotion lines.
+    F_ems: The full emission component for the Mg II resonant emission lines.
+    F_ems1: The 1st emission component for the Mg II resonant emission lines.
+    F_ems2: The 2nd emission component for the Mg II resonant emission lines.
+    F2796_ems1: The Mg II 2796 emission line model in the 1st emission component.
+    F2803_ems1: The Mg II 2803 emission line model in the 1st emission component.
+    F2796_ems2: The Mg II 2796 emission line model in the 2nd emission component.
+    F2803_ems2: The Mg II 2803 emission line model in the 2nd emission component.
+    """
+    Cf_sys = 1.0 # Covering fraction for the systemic component
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+    #F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
+    #         + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+
+    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+    return F_conv
+
+
+def model_MgII_wave_full_comps(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out, logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    """
+    Input:
+    wrest: restframe wavelength.
+
+    The Free parameters for model are:
+    lam_out: central wavelength of the outflow component.
+    lam_ems1: central wavelength of the first emission component.
+    lam_ems2: central wavelength of the second emission component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems1: Doppler velocity parameter for the 1st emission component.
+    b_D_ems2: Doppler velocity parameter for the 2nd emission component.
+    Cf_out: Covering fraction for the outflow component.
+    logN_out: log10 of the column density of Mg II for the outflow component.
+    logN_sys: log10 of the column density of Mg II for the outflow component.
+    A_1: Normalized flux amplitude for the 1st emission component.
+    A_2: Normalized flux amplitude for the 2nd emission component.
+    c_ems1: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+    c_ems2: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+
+
+    Output:
+    The output is a dictionary that contains the output compnents for the model using the keywords:
+    F_out: The full outflow component for the Mg II absorption lines.
+    F2796_out: The outflow component for the Mg II 2796 absorption line.
+    F2803_out: The outflow component for the Mg II 2803 absorption line.
+    F_sys: The full systemic component for the Mg II absprotion lines.
+    F_ems: The full emission component for the Mg II resonant emission lines.
+    F_ems1: The 1st emission component for the Mg II resonant emission lines.
+    F_ems2: The 2nd emission component for the Mg II resonant emission lines.
+    F2796_ems1: The Mg II 2796 emission line model in the 1st emission component.
+    F2803_ems1: The Mg II 2803 emission line model in the 1st emission component.
+    F2796_ems2: The Mg II 2796 emission line model in the 2nd emission component.
+    F2803_ems2: The Mg II 2803 emission line model in the 2nd emission component.
+    """
+
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+    output = {}
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+    output["F_out"] = F_out
+
+    output["F2796_out"] = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )
+    output["F2803_out"] = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )
+
+    #F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+    output["F_sys"] = F_sys
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    output["F_ems"] = F_ems
+    output["F_ems1"] = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. ) )
+
+    output["F_ems2"] = 1. + (A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                    + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    output["F2796_ems1"] = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. ) )
+    output["F2803_ems1"] = 1. + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )
+
+    output["F2796_ems2"] = 1. + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)
+    output["F2803_ems2"] = 1. + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.)
+
+
+    spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    muse_kernel = ((spec_res/1.25)/2.355)
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    F = F_out * F_sys * F_ems
+    output["F_unconv"] = F
+    F_conv = convolve(F, g, boundary='extend')
+    output["F_conv"] = F_conv
+    return output
+
+
+def model_MgII_wave_MAGE_full(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out,logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    """
+    Input:
+    wrest: restframe wavelength.
+
+    The Free parameters for model are:
+    lam_out: central wavelength of the outflow component.
+    lam_ems1: central wavelength of the first emission component.
+    lam_ems2: central wavelength of the second emission component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems1: Doppler velocity parameter for the 1st emission component.
+    b_D_ems2: Doppler velocity parameter for the 2nd emission component.
+    Cf_out: Covering fraction for the outflow component.
+    logN_out: log10 of the column density of Mg II for the outflow component.
+    logN_sys: log10 of the column density of Mg II for the outflow component.
+    A_1: Normalized flux amplitude for the 1st emission component.
+    A_2: Normalized flux amplitude for the 2nd emission component.
+    c_ems1: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+    c_ems2: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+
+
+    Output:
+    The output is a dictionary that contains the output compnents for the model using the keywords:
+    F_out: The full outflow component for the Mg II absorption lines.
+    F2796_out: The outflow component for the Mg II 2796 absorption line.
+    F2803_out: The outflow component for the Mg II 2803 absorption line.
+    F_sys: The full systemic component for the Mg II absprotion lines.
+    F_ems: The full emission component for the Mg II resonant emission lines.
+    F_ems1: The 1st emission component for the Mg II resonant emission lines.
+    F_ems2: The 2nd emission component for the Mg II resonant emission lines.
+    F2796_ems1: The Mg II 2796 emission line model in the 1st emission component.
+    F2803_ems1: The Mg II 2803 emission line model in the 1st emission component.
+    F2796_ems2: The Mg II 2796 emission line model in the 2nd emission component.
+    F2803_ems2: The Mg II 2803 emission line model in the 2nd emission component.
+    """
+    Cf_sys = 1.0 # Covering fraction for the systemic component
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+    vel = u.veldiff(wrest, lam_cen[0])
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+    #F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) ) \
+    #         + (- Cf_out + Cf_out * np.exp(-tau_out1) )  )
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+
+    #spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    v_res = 108.
+    mage_kernel = ((v_res/ (vel[1] - vel[0]) )/2.355)
+    g = Gaussian1DKernel(stddev=mage_kernel)
+    F = F_out * F_sys * F_ems
+    F_conv = convolve(F, g, boundary='extend')
+    return F_conv
+
+
+def model_MgII_wave_MAGE_comps(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_sys, b_D_ems1, b_D_ems2, Cf_out, logN_out, logN_sys, A_1, A_2, c_ems1, c_ems2):
+    """
+    Input:
+    wrest: restframe wavelength.
+
+    The Free parameters for model are:
+    lam_out: central wavelength of the outflow component.
+    lam_ems1: central wavelength of the first emission component.
+    lam_ems2: central wavelength of the second emission component.
+    b_D_out: Doppler velocity parameter for the outflow component.
+    b_D_sys: Doppler velocity parameter for the systemic component.
+    b_D_ems1: Doppler velocity parameter for the 1st emission component.
+    b_D_ems2: Doppler velocity parameter for the 2nd emission component.
+    Cf_out: Covering fraction for the outflow component.
+    logN_out: log10 of the column density of Mg II for the outflow component.
+    logN_sys: log10 of the column density of Mg II for the outflow component.
+    A_1: Normalized flux amplitude for the 1st emission component.
+    A_2: Normalized flux amplitude for the 2nd emission component.
+    c_ems1: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+    c_ems2: the line ratio between Mg II resonant emission lines 2803 and 2796 for the 1st emission component.
+
+
+    Output:
+    The output is a dictionary that contains the output compnents for the model using the keywords:
+    F_out: The full outflow component for the Mg II absorption lines.
+    F2796_out: The outflow component for the Mg II 2796 absorption line.
+    F2803_out: The outflow component for the Mg II 2803 absorption line.
+    F_sys: The full systemic component for the Mg II absprotion lines.
+    F_ems: The full emission component for the Mg II resonant emission lines.
+    F_ems1: The 1st emission component for the Mg II resonant emission lines.
+    F_ems2: The 2nd emission component for the Mg II resonant emission lines.
+    F2796_ems1: The Mg II 2796 emission line model in the 1st emission component.
+    F2803_ems1: The Mg II 2803 emission line model in the 1st emission component.
+    F2796_ems2: The Mg II 2796 emission line model in the 2nd emission component.
+    F2803_ems2: The Mg II 2803 emission line model in the 2nd emission component.
+    """
+
+    Cf_sys = 1.0
+    #Cf_out = 1.0
+    c = 299792.458  # Speed of light in km/s
+    z_r = 1.7039397365102
+    N_out = 10.**logN_out
+    N_sys = 10.**logN_sys
+
+    lam_cen = [2796.351, 2803.528]
+    f0 =      [0.6155, 0.3058]
+    wrest = np.asarray(wrest)
+    vel = u.veldiff(wrest, lam_cen[0])
+
+
+    #dv = u.veldiff(lam_cen[1], lam_cen[0])
+    dlam = lam_cen[1] - lam_cen[0]
+    #vout1 = vout0 + dv
+
+    tau_out0, tau_sys0 = tau_lambda_fn(wrest, lam_cen[0], f0[0], lam_out, N_out, N_sys, b_D_out, b_D_sys)
+    tau_out1, tau_sys1 = tau_lambda_fn(wrest, lam_cen[1], f0[1], lam_out + dlam, N_out, N_sys, b_D_out, b_D_sys)
+
+    output = {}
+
+    F_out = (1.0 + (- Cf_out + Cf_out * np.exp(-(tau_out0 + tau_out1) ) ) )
+    output["F_out"] = F_out
+
+    output["F2796_out"] = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out0) )
+    output["F2803_out"] = 1.0 + (- Cf_out + Cf_out * np.exp(-tau_out1) )
+
+    #F_sys =  ( 1.0 + (- Cf_sys + Cf_sys * np.exp(-tau_sys0))+ (- Cf_sys + Cf_sys * np.exp(-tau_sys1)) )
+    F_sys = 1.0 + (- Cf_sys + Cf_sys * np.exp(- (tau_sys0 + tau_sys1) ))
+    output["F_sys"] = F_sys
+
+    lam_ems12 = lam_ems1 + dlam
+    lam_ems22 = lam_ems2 + dlam
+
+    F_ems = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )\
+                  + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                  + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    output["F_ems"] = F_ems
+    output["F_ems1"] = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. )\
+                  + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. ) )
+
+    output["F_ems2"] = 1. + (A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)\
+                    + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.))
+
+    output["F2796_ems1"] = 1. + (A_1 * np.exp(- ( (wrest - lam_ems1 ) / (lam_ems1 * (b_D_ems1/c)) )**2. ) )
+    output["F2803_ems1"] = 1. + c_ems1 * A_1 * np.exp(- ( (wrest - lam_ems12 ) / (lam_ems12 * (b_D_ems1/c)) )**2. )
+
+    output["F2796_ems2"] = 1. + A_2 * np.exp(- ( (wrest - lam_ems2 ) / (lam_ems2 * (b_D_ems2/c)) )**2.)
+    output["F2803_ems2"] = 1. + c_ems2 * A_2 * np.exp(- ( (wrest - lam_ems22 ) / (lam_ems22 * (b_D_ems2/c)) )**2.)
+
+
+
+    #spec_res, v_res = u.spectral_res( lam_cen[0] * (1. + z_r) )
+    v_res = 108.
+    mage_kernel = ( (v_res/ (vel[1] - vel[0]) )/2.355)
+    g = Gaussian1DKernel(stddev=mage_kernel)
+    F = F_out * F_sys * F_ems
+    output["F_unconv"] = F
+    F_conv = convolve(F, g, boundary='extend')
+    output["F_conv"] = F_conv
+    return output
