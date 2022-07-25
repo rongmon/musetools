@@ -19,8 +19,24 @@ import matplotlib.patches as patches
 
 from scipy import interpolate
 
+#A function to do air to vaccum correction for the observed wavelength from MUSE datacube
 
 def veldiff(wave,wave_center):
+    """
+    A function to calculate the velocity with respect to a central restframe wavelength of atomic transition
+
+    Parameters
+    ----------
+    wave: numpy.ndarray
+        1D array that contains the vaccum restframe wavelength array from the MUSE datacube in Angstroms.
+    wave_center: float
+        The central restframe wavelength value of the atomic transition in Angstroms
+
+    Returns
+    -------
+    del_v: numpy.ndarray
+        The velocity array with the zero velocity corresponding to the central wavelength of atomic transition. Units are km/s 
+    """
     z = (wave / wave_center) - 1.
     c = 299792.458  # Speed of light in km/s
     beta = ((z + 1.)**2. - 1.)/((z+1.)**2. + 1.)
@@ -28,11 +44,27 @@ def veldiff(wave,wave_center):
     return del_v
 
 
-import numpy as np
+
 
 
 
 def spectral_res(obs_lambda):
+    """
+    A function to calculate the spectral resolution for MUSE in the wide field mode
+
+    Parameters
+    ----------
+    obs_lambda: float
+        The observed wavelength, at which we want to calcualte the spectral resolution
+
+    Returns
+    -------
+    lam_res: float
+        The wavelength resolution at this observed wavelength in Angstroms.
+    vel_res: float
+        The velocity resolution at this observed wavelength in km/s.
+    """
+    # These numbers are from MUSE manual
     l_obs = np.asarray([ 4650., 5000., 5500., 6000., 6500., 7000., 7500., 8000., 8500., 9000., 9350.])
     R     = np.asarray([ 1609., 1750., 1978., 2227., 2484., 2737., 2975., 3183., 3350., 3465., 3506.])
     R_err = np.asarray([    6.,    4.,    6.,    6.,    5.,    4.,    4.,    4.,    4.,    5.,   10.])
@@ -57,34 +89,34 @@ def spectral_res(obs_lambda):
 
 def compute_EW(lam,flx,wrest,lmts,flx_err,plot=False,**kwargs):
     """
-    #------------------------------------------------------------------------------------------
-    #   Function to compute the equivalent width within a given velocity limits lmts=[vmin,vmax]
-    #           [Only good for high resolution spectra]
-    #  Caveats:- Not automated, must not include other absorption troughs within the velocity range.
-    #
-    #   Input:-
-    #           lam         :- Observed Wavelength vector (units of Angstrom)
-    #           flx         :- flux vector ( same length as wavelgnth vector, preferably continuum normalized)
-    #           wrest       :- rest frame wavelength of the line [used to make velcity cuts]
-    #           lmts        :- [vmin,vmax], the velocity window within which equivalent width is computed.
-    #           flx_err     :- error spectrum [same length as the flux vector]
-    #
-    #   OPTIONAL :-
-    #           f0=f0       :- fvalue of the transition
-    #           zabs=zabs   :- absorber redshift
-    #           plot        :- plot keyword, default = no plots plot=0
-    #                           plot=1 or anything else will plot the corresponding spectrum
-    #                            and the apparent optical depth of absorption.
-    #
-    #
-    #
-    # Output:-  In a Python dictionary format
-    #           output['ew_tot']      :- rest frame equivalent width of the absorpiton system [Angstrom]
-    #           output['err_ew_tot']  :- error on rest fram equivalent width
-    #           output['col']         :- AOD column denisty
-    #           output['colerr']      :- 1 sigma error on AOD column density
-    #           output['n']           :- AOD column density as a function of velocity
-    #           output['Tau_a']       :- AOD as a function of velocity
+    You can also find this function at rbcodes repository: https://github.com/rongmon/rbcodes
+    ------------------------------------------------------------------------------------------
+    Function to compute the equivalent width within a given velocity limits lmts=[vmin,vmax]
+    [Only good for high resolution spectra]
+    Caveats:- Not automated, must not include other absorption troughs within the velocity range.
+    
+    Parameters
+    ----------
+    lam         :- Observed Wavelength vector (units of Angstrom)
+    flx         :- flux vector ( same length as wavelgnth vector, preferably continuum normalized)
+    wrest       :- rest frame wavelength of the line [used to make velcity cuts]
+    lmts        :- [vmin,vmax], the velocity window within which equivalent width is computed.
+    flx_err     :- error spectrum [same length as the flux vector]
+    
+    OPTIONAL :-
+    f0=f0       :- fvalue of the transition
+    zabs=zabs   :- absorber redshift
+    plot        :- plot keyword, default = no plots plot=0
+                    plot=1 or anything else will plot the corresponding spectrum
+                    and the apparent optical depth of absorption.
+    Returns: 
+    output: Python dictionary format
+    # output['ew_tot']      :- rest frame equivalent width of the absorpiton system [Angstrom]
+    # output['err_ew_tot']  :- error on rest fram equivalent width
+    # output['col']         :- AOD column denisty
+    # output['colerr']      :- 1 sigma error on AOD column density
+    # output['n']           :- AOD column density as a function of velocity
+    # output['Tau_a']       :- AOD as a function of velocity
     #
     #
     #   Written :- Rongmon Bordoloi                             2nd November 2016
@@ -226,6 +258,38 @@ def airtovac(wave):
     return wavelength
 
 def compute_abs(wrest,flx_norm, lam_center, tau, f0, sig, vmin,vmax):
+    """ 
+    A Function to calculate absorption line profile model properties.
+
+    Parameters
+    ----------
+    wrest: ndarray
+        1D restframe wavelength array in Angstroms
+    flx_norm: ndarray
+        1D continuum-normalized flux array
+    lam_center: float
+        Vaccum rest-frame central wavelength of the absorption line in Angstroms
+    tau: float
+        Optical depth at the center of the absorption line
+    f0: float
+        Oscillator strength for the absorption line transition
+    sig: float
+        1 sigma velocity width of the absorption line in km/s
+    vmin: float
+        minimum velocity for the integration window for calculating the absorption line properties in km/s
+    vmax: float
+        maximum velocity for the integration window for calculating the absorption line properties in km/s
+
+    Returns
+    -------
+    ew: float
+        The equivalent width of the absorption line model in Angstroms
+    v_avg: float
+        The weighted velocity of the absorption line model in km/s
+    log10(N): float
+        The logarithm of the column density of the absorption line in log10(cm^-2)
+    
+    """
     #F = 1. - flx_norm
     vel = veldiff(wrest,lam_center)
     l = np.where((vel < vmax) & (vel > vmin))
@@ -241,6 +305,29 @@ def compute_abs(wrest,flx_norm, lam_center, tau, f0, sig, vmin,vmax):
     return ew, v_avg, np.log10(N)
 
 def compute_ems(wrest, flx_norm, lam_center, vmin, vmax):
+    """
+    A function to calculate the emission line profile model properties
+
+    Parameters
+    ----------
+    wrest: ndarray
+        1D restframe wavelength array in Angstroms
+    flx_norm: ndarray
+        1D continuum-normalized flux array
+    lam_center: float
+        Vaccum rest-frame central wavelength of the emission line in Angstroms
+    sig: float
+        1 sigma velocity width of the emission line in km/s
+    vmin: float
+        minimum velocity for the integration window for calculating the emission line properties in km/s
+    vmax: float
+        maximum velocity for the integration window for calculating the emission line properties in km/s
+
+    Returns
+    -------
+    ew: float
+        The equivalent width of the emission line model in Angstroms
+    """
     vel =  veldiff(wrest, lam_center)
     l = np.where((vel < vmax) & (vel > vmin))
     # Equivalent Width
@@ -252,17 +339,40 @@ def compute_ems(wrest, flx_norm, lam_center, vmin, vmax):
 
 def cont_func(wave, flx, flx_er, winmin, winmax, minw, maxw):
     """
-    Input:
-    # wave: wavelength
-    # flx: flux
-    # flx_er: error in flux
-    # winmin: the start wavelength for the total shown window around the line
-    # winmax: the end wavelength for the total shown window around the line
-    # minw: the start wavelength of the narrow window around the line
-    # maxw: the end wavelegnth of the narrow window around the line
+    A function to perform local continuum fitting using 3rd order polynomial and normalizaling 
+    the flux around emission and absorption lines in the spectra.
 
-    output:
-    wave, flx, flx_er, continuum, flx_norm, flx_er_norm
+    Parameters
+    ----------
+    wave: ndarray 
+        1D wavelength array in angstroms from MUSE cube
+    flx: ndarray
+        1D flux array from MUSE cube
+    flx_er: ndarray
+        1D flux error array from MUSE cube
+    winmin: float
+        the start wavelength for the local slice around the line to perform continuum fitting
+    winmax: float
+        the end wavelength for the local slice around the line to perform continuum fitting
+    minw: float
+        the start wavelength of the maskout for the line
+    maxw: 
+        the end wavelegnth of the maskout for the line
+
+    Returns
+    -------
+    wave: ndarray
+        1D array that contains the local wavelength slice that is used to perform continuum fitting
+    flx: ndarray
+        1D array that contains the local flux slice that is used to perform continuum fitting
+    flx_er: ndarray
+        1D array that contains the local flux error slice that is used to perform continuum fitting
+    continuum: ndarray
+        1D array that contains the local continuum slice that is resulting from performing continuum fitting
+    flx_norm: ndarray
+        1D array that contains the local continuum normalized flux of the line
+    flx_er_norm: ndarray
+        1D array that contains the local continuum normalized flux error of the line
     """
     q1 = np.where((wave >= winmin) & (wave <= winmax))
     wave = wave[q1]

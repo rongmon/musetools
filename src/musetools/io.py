@@ -1,3 +1,4 @@
+"""A module for the input and output manipulation of MUSE data cubes and producing 2D narrowband and wideband surface brightness images."""
 from __future__ import print_function, absolute_import, division, unicode_literals
 from astropy.io import fits
 import numpy as np
@@ -5,9 +6,19 @@ import matplotlib.pyplot as plt
 from astropy.wcs import WCS
 
 def tweak_header(header):
-    '''
-    Header tweaks to make the 3D kcwi header compatible with astropy image header object
-    '''
+    """
+    tweakes the header to make the 3D muse datacube header compatible with astropy image header object
+
+    Parameters
+    ----------
+    header: 3D datacube header 
+        the MUSE datacube header
+
+    returns
+    -------
+    header: 2D image header
+        the modified header compatiable with astropy image
+    """
     header['NAXIS']=2
     header['WCSDIM']=2
     if 'CRVAL3' in header.keys():
@@ -28,16 +39,28 @@ def tweak_header(header):
     return header
 
 
-'''
-This input and output file contains all the required function to open the MUSE data
-cube and the output images from it.
-'''
+
 
 def open_muse_cube(fitsfile):
-    '''
-    This function takes the path to the data cube and gives as an output two arrays
-    the 2-D flux data and the wavelength interval.
-    '''
+    """
+    Input/output function to read the MUSE datacube.
+    
+    Parameters
+    ----------
+    fitsfile: string
+        string that contains the directory and the data cube fits file name
+
+    Returns
+    -------
+    wave: numpy.ndarray
+        1D array that contains the observed wavelength of the datacube. (In AIR)
+    data: numpy.ndarray
+        3D array that contains the flux data
+    var: numpy.ndarray
+        3D array that contains the variance data
+    header: fits header
+        The MUSE cube's header
+    """
     #fitsfile = input("Enter the path to your file: ")
     a = fits.open(fitsfile)
     data = a[1].data  # the spectrum data are included in the data extension of the fits file
@@ -58,52 +81,97 @@ def open_muse_cube(fitsfile):
 
 
 def narrow_band(minwave, maxwave, wave, flux_data,plot=False):
-    '''
-    minwave:   minimum wavelength of the narrow band
-    maxwave:   maximum wavelength of the narrow band
-    wave:      The wavelength interval from the data cube
-    flux_data: The 2-D flux data from the data cube
+    """
+    A function to produce narrowband surface brightness image at between two wavelengths in the datacube.
 
-    The output of this function is a wavelength narrow band image of the LensedArc
-    '''
+    Parameters
+    ----------
+    minwave: float   
+        minimum wavelength of the narrow band
+    maxwave: float  
+        maximum wavelength of the narrow band
+    wave: numpy.ndarray     
+        1D array that contains the observed wavelength interval from the data cube
+    flux_data: numpy.ndarray 
+        3D array that contains the flux data from the MUSE cube.
+    plot: bool, optional
+        A keyword to show or not show the figure for the narrowband image
+
+    Returns
+    -------
+    image_SB: numpy.ndarray
+        2D numpy array that contains the surface brightness narrowband image
+
+    """
+    dlambda = 1.25 # Angstrom for the pixel size along the wavelength axis for the MUSE wide field mode
     q = np.where(( wave > minwave) & (wave < maxwave)) # Defining the chosen wavelength interval
     image = np.sum(flux_data[q,:,:], axis = 1)              # We now sum the wavelength within the given interval
-    factor = 10.**(-20.)*(maxwave-minwave) / (0.2)**2.
+    factor = 10.**(-20.)*dlambda / (0.2)**2. # (maxwave-minwave)
     image_SB = image[0,:,:]*factor
+    q_nan = np.isnan(image_SB)
+    q_neg = np.where(image_SB < 0.0)
+    image_SB[q_nan] = 0.0
+    image_SB[q_neg] = 0.0
     if plot== True:
-        #title = input('Enter the title of the plot: ')
         width_in = 10
         fig=plt.figure(1, figsize=(width_in, 15))
-        #fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
-        #ax.set_ylim([205,300])
-        #ax.set_title(title)
+        ax.imshow(np.log10(np.abs(image_SB[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
         plt.show()
 
     return image_SB
 
-def wl_image(wave, flux_data):
-    '''
-    wave:      is the wavelength array derived from the data cube
-    flux_data: the 2-D flux data from the data cube.
+def wl_image(wave, flux_data, plot=False):
+    """
+    A function to produce a white light surface brightness image by summing along the wavelength axis of the MUSE datacube.
 
-    The output of this function is a 2-D image of the LensedArc with summing the total wavelength array.
-    '''
+    Parameters
+    ----------
+    wave: numpy.ndarray
+        1D array that contains the observed wavelength array from the MUSE datacube
+    flux_data: numpy.ndarray
+        3D array that contains the flux data from the MUSE datacube.
+   plot: bool, optional
+        A keyword to show or not show the figure for the narrowband image
+
+
+    Returns
+    -------
+    image_SB: numpy.ndarray
+        2D numpy array that contains the surface brightness whitelight image for the MUSE datacube
+
+    """
+    dlambda = 1.25 # Angstrom for the pixel size along the wavelength axis for the MUSE wide field mode
     q=np.where(( wave > float(wave[0])) & (wave < float(wave[-1])))  # Choosing specific wavelength interval to view (In my case, I used all the wavelength interval)
     image = np.sum(flux_data[q,:,:],axis=1)  # We now sum all the wavelength
-    factor = 10.**(-20.)*(wave[-1]-wave[0]) / (0.2)**2.
+    factor = 10.**(-20.)*dlambda / (0.2)**2.  # (wave[-1]-wave[0])
     image_SB = image[0,:,:] * factor
-    # We will plot the image now using log10 scaling
-    '''
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
-    d = ax.imshow(np.log10(np.abs(image[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
-    plt.show()
-    '''
+    q_nan = np.isnan(image_SB)
+    q_neg = np.where(image_SB < 0.0)
+    image_SB[q_nan] = 0.0
+    image_SB[q_neg] = 0.0
+    if plot== True:
+        width_in = 10
+        fig=plt.figure(1, figsize=(width_in, 15))
+        ax = fig.add_subplot(111)
+        ax.imshow(np.log10(np.abs(image_SB[0,:,:])), cmap = plt.get_cmap('viridis'), origin='lower')
+        plt.show()
     return image_SB
 
-def write_cube(flx,var,header,outfile):
+def write_cube(flux, var, header, outfile):
+    """
+    A function to write a cube (or sub-cube) to a fits file
+
+    Parameters:
+    flux: numpy.ndarray
+        3D array that contains the flux data 
+    var: numpy.ndarray
+        3D array that contains the variance data (same size as the flux array)
+    header: fitsfile header
+        the header for the cube (updated header with any new information for the datacube)
+    outfile: str
+        a string that contains the directory, to save the file, plus the name of the new fits file name
+    """
     #create a new datacube
     hdu1 = fits.PrimaryHDU(s,header=h)
     hdu2 = fits.ImageHDU(sv,header=h)
