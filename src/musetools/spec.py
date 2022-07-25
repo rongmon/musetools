@@ -3,9 +3,10 @@ from __future__ import print_function, absolute_import, division, unicode_litera
 
 from astropy.io import fits
 import numpy as np
+from linetools.spectra.xspectrum1d import XSpectrum1D
 
 # This is the function which will give us the spectrum of each square
-def extract_square(xcen, ycen, wave, flux_data, var, squaresize, outfile=None):
+def extract_square(xcen, ycen, wave, flux_data, var, squaresize=5, outfile=None):
     halfbox = (squaresize - 1)//2
     flux = flux_data[:,ycen-halfbox:ycen+halfbox+1, xcen-halfbox:xcen+halfbox+1]
     sub_var = var[:, ycen-halfbox:ycen+halfbox+1, xcen-halfbox:xcen+halfbox+1]
@@ -13,7 +14,14 @@ def extract_square(xcen, ycen, wave, flux_data, var, squaresize, outfile=None):
     spec = np.sum(flux, axis=(1,2))
     err_spec = np.sqrt(np.sum(sub_var, axis=(1,2)))
 
-    return spec, err_spec 
+
+    # Object
+    xspec = XSpectrum1D.from_tuple((wave, spec, err_spec))
+
+    if outfile is not None:
+        xspec.write_to_fits(outfile)
+
+    return xspec#spec, err_spec 
 
 
 

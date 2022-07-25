@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, Gaussian1DKernel
-import musetools.util as u
+import musetools.utils as u
 from copy import deepcopy
 
 
@@ -1532,4 +1532,89 @@ def model_MgII_wave_MAGE_comps(wrest, lam_out, lam_ems1, lam_ems2, b_D_out, b_D_
     output["F_unconv"] = F
     F_conv = convolve(F, g, boundary='extend')
     output["F_conv"] = F_conv
+    return output
+
+
+"""
+def model_OII(wave,z,tau,sigma):
+    lam1 = 2470.97 #2324.21;
+    lam1_obs = (1. + z) * lam1
+    lam2 = 2471.09 #2325.40;
+    lam2_obs = (1. + z) * lam2
+    #wave = u.airtovac(wave)
+    c = 1. # Get the Doublet ratio
+    F = 1. + c* tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) + tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
+    spec_res = 2.59392978 #2.68871980676
+    muse_kernel = ((spec_res/1.25 )/ 2.355)#FWHM_avg = 2.50161030596 # Check the kernel for this part of the spectrum
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    fmodel = convolve(F, g, boundary='extend')
+    return fmodel
+"""
+
+def model_OIII_5008_4960(wave, z, tau, c, sigma):
+    """
+    This function should be used to estimate the redshift spectroscopically using the [O III] doublet: 4960.295, 5008.240 Angstroms 
+    Input:
+    wave: the observed wavelength array 
+    Model Parameters:
+    z: the redshift.
+    tau: Amplitude of the Gaussian
+    c: line ratio between the two lines
+    sigma: the width of the gaussian
+
+    Output: Final model convolved with the line spread function (LSF)
+    """
+    lam1 = 4960.295 
+    lam2 = 5008.240 
+
+    lam1_obs = lam1 * (1. + z)
+    lam2_obs = lam2 * (1. + z)
+    spec_res_lam, spec_res_vel = u.spectral_res(np.mean(wave))
+
+    #F = 1. + tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) + c * tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
+    F1 = tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.))
+    F2 = c * tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
+    F = F1 * F2
+    muse_kernel = (spec_res_lam/1.25) /2.355
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    fmodel = convolve(F, g, boundary='extend')
+    return fmodel 
+
+
+def model_OIII_5008_4960_comps(wave, z, tau, c, sigma):
+    """
+    This function should be used to estimate the redshift spectroscopically using the [O III] doublet: 4960.295, 5008.240 Angstroms 
+    Input:
+    wave: the observed wavelength array 
+    Model Parameters:
+    z: the redshift.
+    tau: Amplitude of the Gaussian
+    c: line ratio between the two lines
+    sigma: the width of the gaussian
+
+    Output: Final model convolved with the line spread function (LSF)
+    """
+    lam1 = 4960.295 
+    lam2 = 5008.240 
+
+    lam1_obs = lam1 * (1. + z)
+    lam2_obs = lam2 * (1. + z)
+    spec_res_lam, spec_res_vel = u.spectral_res(np.mean(wave))
+
+    #F = 1. + tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) + c * tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
+
+    F1 = tau * np.exp(- (wave - lam1_obs)**2. / (2. * sigma**2.)) 
+    F2 = c * tau * np.exp(-(wave - lam2_obs)**2. / (2. * sigma**2.))
+
+    F = F1 * F2 
+    muse_kernel = (spec_res_lam/1.25) /2.355
+    g = Gaussian1DKernel(stddev=muse_kernel)
+    fmodel = convolve(F, g, boundary='extend')
+
+    output = {}
+    output['F_convolved'] = fmodel 
+    output['F_model'] = F 
+    output['F4960'] = F1 
+    output['F5008'] = F2 
+
     return output

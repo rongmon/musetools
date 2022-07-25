@@ -50,8 +50,9 @@ def open_muse_cube(fitsfile):
     crpix3 = hdu_hdr['CRPIX3']  # The pixel that has the value of CRVAL3
     cd3_3 = hdu_hdr['CD3_3']    # The range of wavelength difference delta_lambda
     wavedim = hdu_hdr['NAXIS3'] # The dimension of the data axis 3 (Wavelength)
+    print(crval3, cd3_3, np.arange(wavedim))
     # Do it
-    wave = crval3 + (crpix3 + np.arange(0, wavedim, 1.0)) * cd3_3 # This array contains the wavelength
+    wave = crval3 + cd3_3 * (np.arange(wavedim) + 1. - crpix3)# This array contains the wavelength
     header = tweak_header(hdu_hdr)
     return wave, data, var, header
 

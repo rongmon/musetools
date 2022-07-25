@@ -665,33 +665,26 @@ def mask_out(vertices, wl, data_cube):
     Output:
     1- Masked 2D white light image
     2- Masked 3D data cube.
-​
     """
-​
     nverts = len(vertices)
-​
-​
     # Making a 2d mask for the contour around the arc from the white light image
     sh = wl.shape
-​
     xx, yy = np.meshgrid(np.arange(sh[1]), np.arange(sh[0]))
     xx, yy = xx.flatten(), yy.flatten()
     points = np.vstack(( xx, yy)).T
-​
     codes = np.ones(nverts, int) * path.Path.LINETO
     codes[0::(nverts-1)] = path.Path.MOVETO
     codes[-1] = path.Path.CLOSEPOLY
     p = path.Path(vertices, codes)
-​
-​
+
     grid = p.contains_points(points);
     mask2d = grid.reshape(sh)
-​
+
     # Making a 3D mask for the data cube.
     q = np.where(mask2d ==True)
     mask_cube = np.zeros(data_cube.shape)
     mask_cube[:,q[0],q[1]] = 1.0
-​
+
     return wl*mask2d, mask_cube*data_cube
 
 def extract_weighted_spectrum(flux,variance,wave,verbose=False,weights='Gaussian',porder=9):
@@ -705,8 +698,7 @@ def extract_weighted_spectrum(flux,variance,wave,verbose=False,weights='Gaussian
                               = 'poly', fits an n order polynomial where n is set by porder
                               = 'Data', Weights by the raw white light image
         porder           :  polynomial order [default 9]
-​
-​
+
     Returns:
         xspec            : XSpectrum1D object [optimal extraction]
     """
@@ -715,43 +707,42 @@ def extract_weighted_spectrum(flux,variance,wave,verbose=False,weights='Gaussian
     variance[q]=0.
     q=variance<0
     variance[q]=0.
-​
+
     q=np.isnan(flux)
     flux[q]=0.
-​
+
     img=flux.sum(axis=0)
     img[img<0] =0
     amp_init = flux.max()
-​
+
     image = np.sum(flux, axis = 0)              # We now sum the wavelength within the given interval
     factor = 10.**(-20.)*(wave[-1] - wave[0]) / (0.2)**2.
     image_SB = image*factor
     q_nan = np.isnan(image_SB)
     image_SB[q_nan] = 0.0
     image_SB[image_SB<0.0] = 0.0
-​
-​
+
+
     ydim,xdim=image_SB.shape#img.shape
     stdev_init_x = 0.33 * ydim
     stdev_init_y = 0.33 * xdim
     theta=0
-​
+
     if (weights=='gaussian' or weights=='Gaussian'):
         g_init = models.Gaussian2D(amp_init, 5, 5, stdev_init_x, stdev_init_y,theta=10)
     elif (weights =='poly' or weights=='Poly'):
         g_init =models.Polynomial2D(degree=porder)#
     else:
         g_init = models.Gaussian2D(amp_init, 5, 5, stdev_init_x, stdev_init_y,theta=10)
-​
-​
+
     yi, xi = np.indices(image_SB.shape)#img.shape)
-​
+
     fit_g = fitting.LevMarLSQFitter()
     with warnings.catch_warnings():
         # Ignore model linearity warning from the fitter
         warnings.simplefilter('ignore')
         p = fit_g(g_init, xi, yi, image_SB)#img)
-​
+
     if verbose == True:
         # Plot the data with the best-fit model
         print('Plotting fitted model profile')
@@ -767,32 +758,29 @@ def extract_weighted_spectrum(flux,variance,wave,verbose=False,weights='Gaussian
         plt.imshow(img - p(xi, yi), origin='lower', interpolation='nearest')#, vmin=-10, vmax=10)#, vmin=-1e4,
          #  vmax=5e4)
         plt.title("Residual")
-​
+
     if (weights =='Data' or weights=='Data'):
         weights=image_SB#img
     else:
         weights = p(xi, yi)
-​
-​
-​
+
     w = wave
     n = len(w)
     fl = np.zeros(n)
     sig = np.zeros(n)
-​
+
     for wv_ii in range(n):
         # n_spaxels = np.sum(mask)
         weights = weights / np.sum(weights)
         fl[wv_ii] = np.nansum(flux[wv_ii] * weights)  # * n_spaxels
         sig[wv_ii] = np.sqrt(np.nansum(variance[wv_ii] * (weights ** 2)))  # * n_spaxels
-​
+
     # renormalize
     fl_sum = np.nansum(flux,axis=(1,2))
     norm = np.sum(fl_sum) / np.sum(fl)
     fl = fl * norm
     sig = sig * norm
-​
-     # Object
+    # Object
     xspec = XSpectrum1D.from_tuple((wave, fl, sig))
-​
+    
     return xspec
